@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>暗号資産評価額・配当金ダッシュボード</title>
+<style>
+:root {
+  --bg: #f0f4f8;
+  --surface: #ffffff;
+  --border: #e2e8f0;
+  --text: #1a202c;
+  --text-muted: #718096;
+  --accent: #4361ee;
+  --accent-h: #3451d1;
+  --hover-bg: #f7fafc;
+  --edit-ring: #bee3f8;
+  --total-bg: #eff6ff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Segoe UI', sans-serif;
+  background: var(--bg); color: var(--text); font-size: 13px; min-height: 100vh;
+}
+
+/* ── HEADER ── */
+header {
+  background: #1e293b; color: #fff;
+  padding: 14px 24px; display: flex; align-items: center;
+  justify-content: space-between; gap: 12px; flex-wrap: wrap;
+}
+header h1 { font-size: 17px; font-weight: 700; }
+.header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rate-pill { background: #334155; border-radius: 20px; padding: 4px 12px; font-size: 12px; color: #94a3b8; }
+.rate-pill span { color: #e2e8f0; font-weight: 600; }
+.ts { font-size: 11px; color: #64748b; }
+
+/* ── BUTTONS ── */
+.btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 7px 13px; border-radius: 7px; border: none;
+  cursor: pointer; font-size: 12px; font-weight: 600;
+  transition: background .15s; font-family: inherit;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-h); }
+.btn-ghost { background: #334155; color: #cbd5e0; }
+.btn-ghost:hover { background: #475569; color: #fff; }
+.btn-danger { background: transparent; color: #fc8181; border: 1px solid transparent; padding: 4px 7px; border-radius: 5px; }
+.btn-danger:hover { background: #fff5f5; border-color: #fc8181; }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+
+/* ── SUMMARY CARDS ── */
+.summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; padding: 20px 24px 4px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px 16px 12px;
+  position: relative; overflow: hidden;
+}
+.card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.card.card-total::before  { background: linear-gradient(90deg, #4361ee, #7c3aed); }
+.card.card-annual::before { background: linear-gradient(90deg, #10b981, #059669); }
+.card.card-monthly::before{ background: linear-gradient(90deg, #f59e0b, #d97706); }
+.card-label { font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
+.card-body  { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.card-nums  { flex: 1; min-width: 0; }
+.card-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.2; }
+.card-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.card-chart { flex-shrink: 0; }
+.card-chart svg { display: block; }
+.card-legend { display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+.leg-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.leg-sym  { font-weight: 700; color: var(--text); }
+
+/* ── 評価額詳細 ── */
+.pnl-row { font-size: 11px; margin-top: 3px; }
+.pnl-pos { color: #16a34a; font-weight: 600; }
+.pnl-neg { color: #dc2626; font-weight: 600; }
+.holdings-list {
+  margin-top: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+}
+.holding-row {
+  display: grid;
+  grid-template-columns: 46px 90px 52px 1fr 1fr;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 6px 2px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 12px;
+}
+.holding-row:last-child { border-bottom: none; }
+.h-price { text-align: right; font-weight: 600; font-size: 12px; }
+.h-change { font-size: 11px; font-weight: 700; text-align: right; }
+.h-qty  { color: var(--text-muted); font-size: 11px; text-align: right; }
+.h-val  { font-weight: 700; text-align: right; white-space: nowrap; }
+.h-pnl  { font-size: 10px; text-align: right; color: var(--text-muted); }
+
+/* ── TABLE AREA ── */
+.table-wrap { padding: 16px 24px 32px; overflow-x: auto; }
+.toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.toolbar-hint { font-size: 11px; color: var(--text-muted); }
+.table-container { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 980px; }
+th {
+  background: #f8fafc; padding: 9px 10px;
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap; text-align: right; user-select: none;
+}
+th:first-child, th.left { text-align: left; }
+th.center { text-align: center; }
+td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; text-align: right; white-space: nowrap; vertical-align: middle; }
+td.left { text-align: left; }
+td.center { text-align: center; }
+tr:last-child td { border-bottom: none; }
+tr.data-row:hover td { background: var(--hover-bg); }
+
+/* editable */
+.editable {
+  cursor: pointer; display: inline-block; border-radius: 4px;
+  padding: 2px 5px; min-width: 20px;
+  border: 1px solid transparent; transition: border-color .12s, background .12s;
+}
+.editable:hover { border-color: var(--edit-ring); background: #eff6ff; }
+.edit-input {
+  padding: 2px 5px; border: 1px solid var(--accent);
+  border-radius: 4px; font-size: 13px; font-family: inherit;
+  background: #fff; outline: none;
+}
+
+/* privacy */
+body.priv-on .priv { filter: blur(6px); user-select: none; pointer-events: none; transition: filter .2s; }
+body:not(.priv-on) .priv { transition: filter .2s; }
+#privacy-btn.active { background: var(--accent) !important; color: #fff !important; }
+
+/* drag & drop */
+tr.data-row { cursor: grab; }
+tr.data-row:active { cursor: grabbing; }
+tr.data-row.dragging { opacity: .35; }
+tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2px 0 var(--accent); }
+.drag-handle { color: #cbd5e0; font-size: 13px; margin-right: 4px; cursor: grab; user-select: none; }
+
+/* 計算式セル */
+.formula-text {
+  max-width: 200px; white-space: pre-wrap; word-break: break-word;
+  font-size: 11px; line-height: 1.5; text-align: left;
+}
+.formula-active { color: var(--text); }
+.formula-empty  { color: #cbd5e0; font-style: italic; }
+
+/* 年利セル */
+.yield-auto { font-weight: 600; }
+.yield-pending { color: #94a3b8; font-style: italic; }
+
+/* misc */
+.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.loading-indicator { color: #a0aec0; font-style: italic; font-size: 11px; }
+.val-usd { font-size: 10px; color: var(--text-muted); font-weight: 400; }
+.spin {
+  display: inline-block; width: 13px; height: 13px;
+  border: 2px solid #334155; border-top-color: #93c5fd;
+  border-radius: 50%; animation: spin .7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── MODAL ── */
+.overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9000; align-items: center; justify-content: center; }
+.overlay.open { display: flex; }
+.modal { background: #fff; border-radius: 12px; padding: 24px; width: 480px; max-width: 95vw; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.modal h2 { font-size: 15px; font-weight: 700; margin-bottom: 18px; }
+.form-row { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 8px; margin-bottom: 10px; }
+.form-row label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+.form-row input, .form-row textarea { padding: 7px 10px; border: 1px solid var(--border); border-radius: 7px; font-size: 13px; font-family: inherit; outline: none; transition: border-color .15s; }
+.form-row input:focus, .form-row textarea:focus { border-color: var(--accent); }
+.form-row textarea { resize: vertical; min-height: 60px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.modal-hint { font-size: 11px; color: var(--text-muted); background: #f8fafc; padding: 10px 12px; border-radius: 6px; margin-bottom: 14px; line-height: 1.6; }
+.modal-hint code { background: #e2e8f0; padding: 1px 4px; border-radius: 3px; font-family: monospace; font-size: 11px; }
+.map-item { display: grid; grid-template-columns: 80px 1fr auto; gap: 6px; align-items: center; margin-bottom: 6px; }
+.map-item input { padding: 5px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 12px; font-family: inherit; outline: none; }
+.map-item input:focus { border-color: var(--accent); }
+
+/* ── FORMULA GUIDE ── */
+.guide-block { background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:12px 14px; }
+.guide-title { font-size:12px; font-weight:700; color:var(--text); margin-bottom:4px; }
+.guide-desc  { font-size:11px; color:var(--text-muted); line-height:1.6; margin-bottom:8px; }
+.guide-example {
+  background:#1e293b; color:#e2e8f0; font-family:monospace; font-size:12px;
+  padding:8px 12px; border-radius:6px; line-height:1.8; white-space:pre;
+}
+.guide-note { font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.7; }
+.guide-note code { background:#e2e8f0; padding:1px 5px; border-radius:3px; font-size:10px; }
+
+@media (max-width: 860px) {
+  .summary { grid-template-columns: 1fr; }
+  header { padding: 12px 14px; }
+  .table-wrap { padding: 12px 10px 24px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📊 暗号資産評価額・配当金ダッシュボード</h1>
+  <div class="header-right">
+    <div class="rate-pill">💱 USD/JPY <span id="rate-val">---</span></div>
+    <div class="ts" id="sync-status"></div>
+    <div class="ts" id="ts">未取得</div>
+    <button class="btn btn-ghost" id="privacy-btn" onclick="togglePrivacy()" title="プライバシーモード">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
+    <button class="btn btn-ghost" id="refresh-btn" onclick="fetchPrices()">
+      <span id="refresh-icon">↺</span> 価格を更新
+    </button>
+  </div>
+</header>
+
+<div class="summary">
+  <!-- 左：評価額合計 + 銘柄別詳細 -->
+  <div class="card card-total">
+    <div class="card-label">評価額合計</div>
+    <div class="card-body" style="align-items:flex-start;">
+      <div class="card-nums">
+        <div class="card-value priv" id="c-val">¥ ---</div>
+        <div class="card-sub   priv" id="c-val-usd">$ ---</div>
+        <div class="pnl-row    priv" id="c-val-pnl"></div>
+      </div>
+      <div class="card-chart" id="chart-val"></div>
+    </div>
+    <div class="holdings-list priv" id="holdings-detail"></div>
+  </div>
+
+  <!-- 右：年間配当合計（拡張版） -->
+  <div class="card card-annual">
+    <div class="card-label">年間配当合計</div>
+    <div class="card-body" style="align-items:flex-start;">
+      <div class="card-nums">
+        <div class="card-value priv" id="c-annual">¥ ---</div>
+        <div class="card-sub   priv" id="c-annual-usd">$ ---</div>
+        <div class="pnl-row    priv" id="c-annual-pnl"></div>
+        <div class="pnl-row    priv" id="c-annual-monthly" style="margin-top:2px;"></div>
+        <div class="card-sub"        id="c-annual-yield"   style="margin-top:4px;"></div>
+      </div>
+      <div class="card-chart" id="chart-annual"></div>
+    </div>
+    <div class="holdings-list priv" id="annual-detail"></div>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <div class="toolbar">
+    <span class="toolbar-hint">✎ 銘柄・取引所・枚数をクリックで編集　｜　計算式に条件式を入力すると年利が自動計算されます</span>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-ghost btn-sm" onclick="openSettings()">⚙ コイン設定</button>
+      <button class="btn btn-primary" onclick="openAdd()">＋ 銘柄を追加</button>
+    </div>
+  </div>
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th class="left" style="width:80px">銘柄</th>
+          <th class="left" style="width:120px">取引所</th>
+          <th style="width:100px">枚数</th>
+          <th style="width:110px">現在価格</th>
+          <th style="width:130px">評価額</th>
+          <th style="width:72px">年利</th>
+          <th style="width:110px">年間配当</th>
+          <th style="width:110px">月間配当</th>
+          <th class="left" style="width:200px">計算式 <button onclick="openFormulaGuide()" style="background:none;border:1px solid #cbd5e0;border-radius:10px;padding:0 5px;font-size:10px;cursor:pointer;color:#718096;font-weight:600;line-height:1.4;" title="計算式の書き方を見る">?</button></th>
+          <th class="center" style="width:50px">削除</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="add-overlay">
+  <div class="modal">
+    <h2>＋ 銘柄を追加</h2>
+    <div class="modal-hint">
+      計算式の書き方は <a href="#" onclick="closeAdd();openFormulaGuide();return false;" style="color:var(--accent);font-weight:600;">📐 計算式ガイド</a> を参照してください。<br>
+      <span style="color:#94a3b8;">空欄の場合は年利を手入力できます。</span>
+    </div>
+    <div class="form-row"><label>銘柄（シンボル）</label><input id="a-sym" placeholder="例: BTC" /></div>
+    <div class="form-row"><label>取引所</label><input id="a-ex" placeholder="例: Binance" /></div>
+    <div class="form-row"><label>枚数</label><input id="a-qty" type="number" step="any" placeholder="0" /></div>
+    <div class="form-row"><label>年利 (%)</label><input id="a-yield" type="number" step="0.01" placeholder="計算式未入力時に使用" /></div>
+    <div class="form-row"><label>計算式</label><textarea id="a-note" placeholder="例：≦50000 USDT: 8.75%&#10;>50000 USDT: 6%&#10;&#10;空欄なら年利を手入力"></textarea></div>
+    <div class="form-row"><label>CoinGecko ID</label><input id="a-cgid" placeholder="例: bitcoin（省略可）" /></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeAdd()">キャンセル</button>
+      <button class="btn btn-primary" onclick="addRow()">追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- FORMULA GUIDE MODAL -->
+<div class="overlay" id="guide-overlay">
+  <div class="modal" style="width:520px;">
+    <h2>📐 計算式の書き方</h2>
+
+    <div style="display:flex;flex-direction:column;gap:14px;">
+
+      <div class="guide-block">
+        <div class="guide-title">① 固定利率</div>
+        <div class="guide-desc">常に同じ年利を適用します。</div>
+        <div class="guide-example">8.75%</div>
+      </div>
+
+      <div class="guide-block">
+        <div class="guide-title">② 段階型（加重平均）</div>
+        <div class="guide-desc">
+          各レンジの残高に個別の年利を適用し、<strong>加重平均</strong>で年利を算出します。<br>
+          「最初の N 枚は高利率、超過分は低利率」という取引所に対応します。
+        </div>
+        <div class="guide-note" style="margin-bottom:8px;">
+          書式：<code>開始~終了 単位: 年利%</code>　（改行で複数段階を指定）<br>
+          開始を省略すると 0 扱い　／　終了を省略すると上限なし
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div>
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">枚数ベース（コインシンボルを単位に）</div>
+            <div class="guide-example">0~35000 XRP: 6%<br>35000~ XRP: 1%</div>
+          </div>
+          <div>
+            <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px;">USD評価額ベース</div>
+            <div class="guide-example">0~50000 USDT: 8.75%<br>50000~ USDT: 6%</div>
+          </div>
+        </div>
+        <div class="guide-note" style="margin-top:8px;">
+          単位：<code>USDT</code> / <code>USD</code> → USD評価額　／　<code>JPY</code> / <code>円</code> → 円評価額<br>
+          &emsp;&emsp;&emsp;コインシンボル（例：<code>XRP</code>）またはその他 → 保有枚数
+        </div>
+      </div>
+
+      <div style="font-size:11px;color:#94a3b8;border-top:1px solid var(--border);padding-top:10px;">
+        💡 計算式が空欄の場合は、年利の列をクリックして手入力できます。<br>
+        💡 価格が未取得の場合、USDT / JPY ベースの段階型は計算できません。その間は保存済みの年利を使用します。
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-primary" onclick="closeFormulaGuide()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS MODAL -->
+<div class="overlay" id="settings-overlay">
+  <div class="modal">
+    <h2>⚙ コイン設定 — CoinGecko ID マッピング</h2>
+    <div class="modal-hint">
+      シンボルと <a href="https://www.coingecko.com/" target="_blank" style="color:var(--accent)">CoinGecko</a> ID の対応を管理します。<br>
+      例: https://www.coingecko.com/en/coins/<strong>bitcoin</strong> → ID は <strong>bitcoin</strong>
+    </div>
+    <div id="map-list"></div>
+    <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+      <div style="font-size:11px;color:var(--text-muted);font-weight:600;margin-bottom:8px;">新規追加</div>
+      <div class="map-item">
+        <input id="ms" placeholder="シンボル" />
+        <input id="mid" placeholder="CoinGecko ID (例: ripple)" />
+        <button class="btn btn-primary btn-sm" onclick="addMapping()">追加</button>
+      </div>
+    </div>
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px;">
+      <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px;">☁ GitHub Gist 同期</div>
+      <div class="modal-hint" style="margin-bottom:10px;">
+        データをクラウドに保存し、どのブラウザ・デバイスからでも使えます。<br>
+        <strong>① </strong><a href="https://github.com/settings/tokens/new?scopes=gist&description=Dashboard+Sync" target="_blank" style="color:var(--accent);font-weight:600;">GitHubでトークンを発行</a>（スコープは <code>gist</code> のみ選択）<br>
+        <strong>② </strong>下の欄に貼り付けて「接続」をクリック
+      </div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center;margin-bottom:8px;">
+        <input id="gh-token-input" type="password" placeholder="ghp_xxxxxxxxxxxx（Personal Access Token）"
+          style="padding:7px 10px;border:1px solid var(--border);border-radius:7px;font-size:12px;font-family:monospace;outline:none;" />
+        <button class="btn btn-primary btn-sm" onclick="connectGist()">接続</button>
+      </div>
+      <div id="gist-info" style="font-size:11px;color:var(--text-muted);line-height:1.7;"></div>
+      <div id="sync-status-modal" style="font-size:11px;margin-top:4px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="disconnectGist()" id="disconnect-btn" style="display:none;">接続を解除</button>
+      <button class="btn btn-primary" onclick="closeSettings()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  DEFAULT DATA
+// ═══════════════════════════════════════════
+const DEFAULT_HOLDINGS = [];
+
+const DEFAULT_IDS = {
+  'BTC':'bitcoin','ETH':'ethereum','XRP':'ripple','SOL':'solana',
+  'ADA':'cardano','BNB':'binancecoin','DOGE':'dogecoin','DOT':'polkadot',
+  'MATIC':'matic-network','TRUMP':'official-trump','FLR':'flare-networks',
+  'NEXO':'nexo','LINK':'chainlink','UNI':'uniswap','AVAX':'avalanche-2',
+  'LTC':'litecoin','TRX':'tron','ATOM':'cosmos','XLM':'stellar',
+  'SHIB':'shiba-inu','PEPE':'pepe','OP':'optimism','ARB':'arbitrum',
+};
+
+const BADGE_COLORS = {
+  'XRP':  { bg:'#dbeafe', color:'#1d4ed8' },
+  'SOL':  { bg:'#dcfce7', color:'#15803d' },
+  'ADA':  { bg:'#ede9fe', color:'#6d28d9' },
+  'TRUMP':{ bg:'#ffedd5', color:'#c2410c' },
+  'FLR':  { bg:'#fee2e2', color:'#b91c1c' },
+  'NEXO': { bg:'#e0e7ff', color:'#3730a3' },
+  'BTC':  { bg:'#fef3c7', color:'#b45309' },
+  'ETH':  { bg:'#ede9fe', color:'#5b21b6' },
+};
+
+const CHART_COLORS = {
+  'XRP':'#3b82f6','SOL':'#22c55e','ADA':'#a855f7','TRUMP':'#f97316',
+  'FLR':'#ef4444','NEXO':'#6366f1','BTC':'#f59e0b','ETH':'#8b5cf6',
+  'BNB':'#eab308','DOGE':'#d97706','DOT':'#ec4899','LTC':'#6b7280',
+};
+const FALLBACK_PALETTE = ['#06b6d4','#84cc16','#f43f5e','#14b8a6','#fb923c'];
+function getChartColor(sym, i) {
+  return CHART_COLORS[sym.toUpperCase()] || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length];
+}
+
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let holdings = loadLS('holdings2') || DEFAULT_HOLDINGS.map(h=>({...h}));
+let coinIds   = loadLS('coinIds')   || {...DEFAULT_IDS};
+let prices    = {};
+let usdJpy    = null;
+let nextId    = Math.max(0, ...holdings.map(h=>h.id)) + 1;
+let dragId    = null;
+let ghToken   = localStorage.getItem('ghToken')  || '';
+let ghGistId  = localStorage.getItem('ghGistId') || '';
+let syncTimer = null;
+
+// migrate old 'notes' field to 'formula'
+holdings.forEach(h => {
+  if (h.notes !== undefined && h.formula === undefined) {
+    h.formula = h.notes; delete h.notes;
+  }
+});
+
+function loadLS(k) {
+  try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch(e){ return null; }
+}
+function saveLS() {
+  try {
+    localStorage.setItem('holdings2', JSON.stringify(holdings));
+    localStorage.setItem('coinIds',   JSON.stringify(coinIds));
+  } catch(e){}
+  // Gist に2秒デバウンスで同期
+  if (ghToken && ghGistId) {
+    clearTimeout(syncTimer);
+    setSyncStatus('pending');
+    syncTimer = setTimeout(gistSave, 2000);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  PRICE FETCH
+// ═══════════════════════════════════════════
+async function fetchPrices() {
+  const btn = document.getElementById('refresh-btn');
+  const ic  = document.getElementById('refresh-icon');
+  btn.disabled = true;
+  ic.innerHTML = '<span class="spin"></span>';
+
+  const syms = [...new Set(holdings.map(h => h.symbol.toUpperCase()))];
+  const ids  = [...new Set(syms.map(s => coinIds[s]).filter(Boolean))];
+
+  if (!ids.length) {
+    document.getElementById('ts').textContent = '⚠ CoinGecko IDが未設定です';
+    btn.disabled = false; ic.textContent = '↺'; return;
+  }
+
+  try {
+    const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd,jpy&include_24hr_change=true`;
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+
+    prices = {};
+    for (const s of syms) {
+      const id = coinIds[s];
+      if (id && data[id]) prices[s] = {
+        usd: data[id].usd,
+        jpy: data[id].jpy,
+        change24h: data[id].jpy_24h_change ?? data[id].usd_24h_change ?? null,
+      };
+    }
+    const first = Object.values(prices)[0];
+    if (first) usdJpy = first.jpy / first.usd;
+
+    document.getElementById('rate-val').textContent = usdJpy ? usdJpy.toFixed(2) : '---';
+    document.getElementById('ts').textContent = '更新: ' + new Date().toLocaleTimeString('ja-JP');
+  } catch(e) {
+    document.getElementById('ts').textContent = '取得失敗: ' + e.message;
+  }
+  btn.disabled = false; ic.textContent = '↺';
+  render();
+}
+
+// ═══════════════════════════════════════════
+//  FORMULA EVALUATOR
+//
+//  ① 固定利率:   8.75%
+//
+//  ② 段階型（加重平均）:
+//       0~35000 XRP: 6%      ← 最初の35000枚に6%
+//       35000~  XRP: 1%      ← 超過分に1%
+//       0~50000 USDT: 8.75%  ← USD評価額50000まで8.75%
+//       50000~  USDT: 6%
+//
+//  単位: USDT/USD/$ → USD評価額
+//        JPY/円/¥   → 円評価額
+//        コインシンボル/その他 → 保有枚数
+// ═══════════════════════════════════════════
+
+function getUnitVal(unit, h, pd) {
+  const u = unit.replace(/\s/g,'').toUpperCase();
+  if (['USDT','USD','$'].includes(u))   return pd ? pd.valUsd : null;
+  if (['JPY','円','¥','￥'].includes(u)) return pd ? pd.valJpy : null;
+  return h.quantity;
+}
+
+function evalFormula(text, h, pd) {
+  if (!text || !text.trim()) return null;
+  const lines = text.trim().split(/\n/).map(l => l.trim()).filter(Boolean);
+
+  // 固定利率（数値のみ）
+  if (lines.length === 1) {
+    const s = lines[0].match(/^([\d.]+)\s*%?$/);
+    if (s) return round2(parseFloat(s[1]));
+  }
+
+  // 段階型: [from]~[to] UNIT: RATE%
+  let totalBase = null, totalEarnings = 0, matched = 0;
+  for (const line of lines) {
+    const m = line.match(/^([\d,，]*)\s*[~〜]\s*([\d,，]*)\s*([A-Za-z円¥￥$]+)\s*[：:]\s*([\d.]+)\s*%?/);
+    if (!m) continue;
+    const from = m[1] ? parseFloat(m[1].replace(/[,，]/g,'')) : 0;
+    const to   = m[2] ? parseFloat(m[2].replace(/[,，]/g,'')) : Infinity;
+    const rate = parseFloat(m[4]);
+    const base = getUnitVal(m[3], h, pd);
+    if (base == null) return null;
+    if (totalBase === null) totalBase = base;
+    totalEarnings += Math.max(0, Math.min(base, to) - from) * rate / 100;
+    matched++;
+  }
+  if (!matched || !totalBase || totalBase <= 0) return null;
+  return round2(totalEarnings / totalBase * 100);
+}
+
+function round2(n) { return Math.round(n * 100) / 100; }
+
+// ═══════════════════════════════════════════
+//  CALC  (価格データと年利を分離)
+// ═══════════════════════════════════════════
+function calcPrices(h) {
+  const p = prices[h.symbol.toUpperCase()];
+  if (!p) return null;
+  return { priceUsd: p.usd, priceJpy: p.jpy, valUsd: h.quantity * p.usd, valJpy: h.quantity * p.jpy };
+}
+function calcDividend(pd, yld) {
+  if (!pd) return null;
+  return {
+    ...pd,
+    divUsd:  pd.valUsd * yld / 100,
+    divJpy:  pd.valJpy * yld / 100,
+    mDivJpy: pd.valJpy * yld / 100 / 12,
+  };
+}
+
+// ═══════════════════════════════════════════
+//  FORMAT
+// ═══════════════════════════════════════════
+function fJpy(n)    { return n == null ? '---' : '¥' + Math.round(n).toLocaleString('ja-JP'); }
+function fUsdBig(n) { return n == null ? '---' : '$' + Math.round(n).toLocaleString('ja-JP'); }
+function fUsd(n) {
+  if (n == null) return '---';
+  if (n >= 100)  return '$' + n.toLocaleString('ja-JP', {maximumFractionDigits:0});
+  if (n >= 1)    return '$' + n.toFixed(3);
+  if (n >= .01)  return '$' + n.toFixed(5);
+  return '$' + n.toFixed(6);
+}
+function fQty(n) {
+  if (n == null) return '---';
+  return parseFloat(n.toFixed(3)).toLocaleString('ja-JP');
+}
+function fYield(n) {
+  if (n == null) return '---';
+  // 小数点第二位で四捨五入
+  const r = round2(n);
+  // 末尾ゼロを除去: 8.00 → 8、8.50 → 8.5
+  return parseFloat(r.toFixed(2)) + '%';
+}
+function fJpyPrice(n) {
+  if (n == null) return '---';
+  return '¥' + n.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function badge(sym) {
+  const s = sym.toUpperCase();
+  const c = BADGE_COLORS[s] || { bg:'#f1f5f9', color:'#475569' };
+  return `<span class="badge" style="background:${c.bg};color:${c.color}">${s}</span>`;
+}
+
+// ═══════════════════════════════════════════
+//  PIE CHART
+// ═══════════════════════════════════════════
+function makePie(segs, size = 88) {
+  const total = segs.reduce((s, x) => s + x.value, 0);
+  if (!total) {
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+      <circle cx="${size/2}" cy="${size/2}" r="${size*.42}" fill="none" stroke="#e2e8f0" stroke-width="${size*.18}"/>
+    </svg>`;
+  }
+  const cx = size/2, cy = size/2, R = size*.42, r = size*.25, GAP = 0.018;
+  let paths = [], start = -Math.PI/2;
+  for (const seg of segs) {
+    if (seg.value <= 0) continue;
+    const full = seg.value / total * 2 * Math.PI;
+    const sw = Math.max(full - GAP, .001);
+    const end = start + sw;
+    const lg = sw > Math.PI ? 1 : 0;
+    const p = (a, rad) => [cx + rad*Math.cos(a), cy + rad*Math.sin(a)];
+    const [ox1,oy1]=p(start,R),[ox2,oy2]=p(end,R),[ix1,iy1]=p(start,r),[ix2,iy2]=p(end,r);
+    const ff = n => n.toFixed(2);
+    paths.push(`<path d="M${ff(ox1)},${ff(oy1)} A${R},${R} 0 ${lg},1 ${ff(ox2)},${ff(oy2)} L${ff(ix2)},${ff(iy2)} A${r},${r} 0 ${lg},0 ${ff(ix1)},${ff(iy1)} Z" fill="${seg.color}"/>`);
+    start += full;
+  }
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths.join('')}</svg>`;
+}
+
+function updateCharts(symTotals) {
+  const syms = Object.keys(symTotals);
+  const cmap = {}; syms.forEach((s,i) => cmap[s] = getChartColor(s,i));
+  [
+    { chartId:'chart-val',    key:'valJpy' },
+    { chartId:'chart-annual', key:'divJpy' },
+  ].forEach(({ chartId, key }) => {
+    const segs = syms.map(s => ({ label:s, value: symTotals[s][key]||0, color: cmap[s] })).filter(x=>x.value>0);
+    document.getElementById(chartId).innerHTML = makePie(segs);
+  });
+}
+
+function updateHoldingsDetail(symTotals, grand) {
+  // 銘柄ごとの合計枚数
+  const symQty = {};
+  for (const h of holdings) {
+    const s = h.symbol.toUpperCase();
+    symQty[s] = (symQty[s] || 0) + h.quantity;
+  }
+
+  // 本日の損益（24h変動ベース）
+  let totalPnl = 0, totalPrevVal = 0;
+  const syms = Object.keys(symTotals).filter(s => symTotals[s].valJpy > 0);
+  for (const s of syms) {
+    const p = prices[s];
+    if (p && p.change24h != null) {
+      const r = p.change24h / 100;
+      const prev = symTotals[s].valJpy / (1 + r);
+      totalPnl     += symTotals[s].valJpy - prev;
+      totalPrevVal += prev;
+    }
+  }
+
+  // P&L 表示
+  const pnlEl = document.getElementById('c-val-pnl');
+  if (totalPrevVal > 0) {
+    const pnlPct = totalPnl / totalPrevVal * 100;
+    const sign   = totalPnl >= 0 ? '+' : '';
+    const cls    = totalPnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+    pnlEl.innerHTML = `<span class="${cls}">本日 ${sign}${fJpy(totalPnl)} (${sign}${pnlPct.toFixed(2)}%)</span>`;
+  } else {
+    pnlEl.textContent = '';
+  }
+
+  // 銘柄リスト（評価額降順）
+  const detail = document.getElementById('holdings-detail');
+  detail.innerHTML = syms
+    .sort((a, b) => symTotals[b].valJpy - symTotals[a].valJpy)
+    .map(sym => {
+      const p  = prices[sym];
+      const st = symTotals[sym];
+      const qty = symQty[sym] || 0;
+      const c  = BADGE_COLORS[sym] || { bg:'#f1f5f9', color:'#475569' };
+      const chg = p && p.change24h != null ? p.change24h : null;
+      const chgCls  = chg == null ? '' : chg >= 0 ? 'pnl-pos' : 'pnl-neg';
+      const chgText = chg == null ? '' : (chg >= 0 ? '▲' : '▼') + Math.abs(chg).toFixed(2) + '%';
+
+      // 当該銘柄の本日損益
+      let rowPnl = '';
+      if (p && p.change24h != null) {
+        const r    = p.change24h / 100;
+        const pnl  = st.valJpy - st.valJpy / (1 + r);
+        const sign = pnl >= 0 ? '+' : '';
+        const cls  = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+        rowPnl = `<span class="${cls}">${sign}${fJpy(pnl)}</span>`;
+      }
+
+      return `<div class="holding-row">
+        <span class="badge" style="background:${c.bg};color:${c.color};font-size:10px;">${sym}</span>
+        <div style="text-align:right">
+          <div class="h-price">${p ? fJpyPrice(p.jpy) : '---'}</div>
+          <div class="val-usd" style="font-size:10px;">${p ? fUsd(p.usd) : ''}</div>
+        </div>
+        <span class="h-change ${chgCls}">${chgText}</span>
+        <span class="h-qty">${fQty(qty)} ${sym}</span>
+        <div style="text-align:right">
+          <div class="h-val">${fJpy(st.valJpy)}</div>
+          <div class="h-pnl">${rowPnl}</div>
+        </div>
+      </div>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  ANNUAL DETAIL CARD
+// ═══════════════════════════════════════════
+function updateAnnualDetail(symTotals, grand) {
+  const syms = Object.keys(symTotals).filter(s => symTotals[s].divJpy > 0);
+
+  // 24h P&L of annual dividends (price-driven)
+  let totalPnl = 0, totalPrev = 0;
+  for (const s of syms) {
+    const p = prices[s];
+    if (p && p.change24h != null) {
+      const r    = p.change24h / 100;
+      const prev = symTotals[s].divJpy / (1 + r);
+      totalPnl  += symTotals[s].divJpy - prev;
+      totalPrev += prev;
+    }
+  }
+
+  // カードヘッダー更新
+  document.getElementById('c-annual').textContent    = fJpy(grand.divJpy);
+  document.getElementById('c-annual-usd').textContent = usdJpy ? fUsdBig(grand.divJpy / usdJpy) : '$ ---';
+
+  const pnlEl = document.getElementById('c-annual-pnl');
+  if (totalPrev > 0) {
+    const pct  = totalPnl / totalPrev * 100;
+    const sign = totalPnl >= 0 ? '+' : '';
+    const cls  = totalPnl >= 0 ? 'pnl-pos' : 'pnl-neg';
+    pnlEl.innerHTML = `<span class="${cls}">本日 ${sign}${fJpy(totalPnl)} (${sign}${pct.toFixed(2)}%)</span>`;
+  } else {
+    pnlEl.textContent = '';
+  }
+
+  // 月間合計（小さく・前日比の下）
+  const monthEl = document.getElementById('c-annual-monthly');
+  monthEl.innerHTML = `<span style="color:var(--text-muted);font-size:11px;">月間 ${fJpy(grand.mDivJpy)}</span>`;
+
+  // 加重平均年利
+  const avgY = grand.valJpy > 0 ? grand.divJpy / grand.valJpy * 100 : null;
+  document.getElementById('c-annual-yield').textContent = avgY != null ? `加重平均年利 ${fYield(avgY)}` : '';
+
+  // 銘柄別一覧
+  const detail = document.getElementById('annual-detail');
+  detail.innerHTML = syms
+    .sort((a, b) => symTotals[b].divJpy - symTotals[a].divJpy)
+    .map(sym => {
+      const p   = prices[sym];
+      const st  = symTotals[sym];
+      const bc  = BADGE_COLORS[sym] || { bg:'#f1f5f9', color:'#475569' };
+      const chg = p && p.change24h != null ? p.change24h : null;
+      const chgCls  = chg == null ? '' : chg >= 0 ? 'pnl-pos' : 'pnl-neg';
+      const chgText = chg == null ? '' : (chg >= 0 ? '▲' : '▼') + Math.abs(chg).toFixed(2) + '%';
+      const monthly  = fJpy(st.divJpy / 12);
+      const symYield = st.valJpy > 0 ? fYield(st.divJpy / st.valJpy * 100) : '---';
+
+      return `<div class="holding-row" style="grid-template-columns:46px 1fr 50px;">
+        <span class="badge" style="background:${bc.bg};color:${bc.color};font-size:10px;">${sym}</span>
+        <div style="text-align:right">
+          <div class="h-val">${fJpy(st.divJpy)}</div>
+          <div class="h-pnl" style="color:var(--text-muted);">${monthly}/月</div>
+        </div>
+        <span style="font-size:12px;font-weight:600;color:var(--text);text-align:right;padding-left:8px;">${symYield}</span>
+      </div>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  INLINE EDIT
+// ═══════════════════════════════════════════
+function editable(display, hid, field, type = 'text') {
+  const d = String(display).replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `<span class="editable" onclick="startEdit(this,${hid},'${field}','${type}')">${d}</span>`;
+}
+
+window.startEdit = function(el, hid, field, type) {
+  const h = holdings.find(x => x.id === hid);
+  if (!h) return;
+  const raw = h[field];
+  const inp = document.createElement('input');
+  inp.type = type === 'number' ? 'number' : 'text';
+  inp.className = 'edit-input'; inp.value = raw; inp.step = 'any';
+  inp.style.width = Math.max(60, el.offsetWidth + 8) + 'px';
+  const commit = () => {
+    let v = type === 'number' ? parseFloat(inp.value) : inp.value;
+    if (type === 'number' && isNaN(v)) v = raw;
+    h[field] = v; saveLS(); render();
+  };
+  inp.onblur = commit;
+  inp.onkeydown = e => {
+    if (e.key === 'Enter')  { e.preventDefault(); inp.blur(); }
+    if (e.key === 'Escape') { inp.onblur = null; render(); }
+  };
+  el.replaceWith(inp); inp.focus(); inp.select();
+};
+
+window.startEditFormula = function(el, hid) {
+  const h = holdings.find(x => x.id === hid);
+  if (!h) return;
+
+  // ラッパー
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'display:flex;flex-direction:column;gap:4px;';
+
+  const ta = document.createElement('textarea');
+  ta.className = 'edit-input';
+  ta.value = h.formula || '';
+  ta.style.cssText = 'width:200px;height:76px;resize:vertical;font-size:11px;line-height:1.6;font-family:monospace;';
+  ta.placeholder =
+    '空欄 → 年利を手入力\n\n' +
+    '【固定】\n8.75%\n\n' +
+    '【段階型・枚数ベース】\n0~35000 XRP: 6%\n35000~ XRP: 1%\n\n' +
+    '【段階型・USD評価ベース】\n0~50000 USDT: 8.75%\n50000~ USDT: 6%';
+
+  // ヘルプリンク
+  const hint = document.createElement('div');
+  hint.style.cssText = 'font-size:10px;color:#94a3b8;';
+  hint.innerHTML = '? <a href="#" onclick="openFormulaGuide();return false;" style="color:#4361ee;">計算式の書き方</a>';
+
+  wrap.appendChild(ta);
+  wrap.appendChild(hint);
+
+  const commit = () => { h.formula = ta.value.trim(); saveLS(); render(); };
+  ta.onblur = e => {
+    // hint内のリンククリック時はblurしても閉じない
+    setTimeout(() => { if (!wrap.contains(document.activeElement)) commit(); }, 150);
+  };
+  ta.onkeydown = e => { if (e.key === 'Escape') { ta.onblur = null; render(); } };
+
+  el.replaceWith(wrap); ta.focus();
+};
+
+window.deleteRow = function(id) { holdings = holdings.filter(h => h.id !== id); saveLS(); render(); };
+
+// ═══════════════════════════════════════════
+//  DRAG & DROP
+// ═══════════════════════════════════════════
+function attachDrag(tr, hid) {
+  tr.draggable = true;
+  tr.dataset.hid = hid;
+
+  tr.addEventListener('dragstart', e => {
+    dragId = hid;
+    e.dataTransfer.effectAllowed = 'move';
+    // Firefox requires setData
+    e.dataTransfer.setData('text/plain', hid);
+    requestAnimationFrame(() => tr.classList.add('dragging'));
+  });
+  tr.addEventListener('dragend', () => {
+    dragId = null;
+    document.querySelectorAll('tr.dragging').forEach(el => el.classList.remove('dragging'));
+    document.querySelectorAll('tr.drag-over').forEach(el => el.classList.remove('drag-over'));
+  });
+  tr.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (hid !== dragId) {
+      document.querySelectorAll('tr.drag-over').forEach(el => el.classList.remove('drag-over'));
+      tr.classList.add('drag-over');
+    }
+  });
+  tr.addEventListener('dragleave', e => {
+    // only remove if leaving to outside this row
+    if (!tr.contains(e.relatedTarget)) tr.classList.remove('drag-over');
+  });
+  tr.addEventListener('drop', e => {
+    e.preventDefault();
+    tr.classList.remove('drag-over');
+    if (dragId == null || dragId === hid) return;
+    const fromIdx = holdings.findIndex(h => h.id === dragId);
+    const toIdx   = holdings.findIndex(h => h.id === hid);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = holdings.splice(fromIdx, 1);
+    holdings.splice(toIdx, 0, moved);
+    saveLS();
+    render();
+  });
+}
+
+// ═══════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════
+function render() {
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  // ① 全行のデータを一括計算（holdings の順序をそのまま反映）
+  const allRows = holdings.map(h => {
+    const pd            = calcPrices(h);
+    const formulaResult = evalFormula(h.formula, h, pd);
+    const hasFormula    = !!(h.formula && h.formula.trim());
+    const effYield      = hasFormula && formulaResult !== null ? formulaResult : h.annualYield;
+    const c             = calcDividend(pd, effYield);
+    return { h, pd, formulaResult, hasFormula, effYield, c };
+  });
+
+  // ② 集計 & 描画
+  const symTotals = {};
+  let grand = { valUsd:0, valJpy:0, divUsd:0, divJpy:0, mDivJpy:0 };
+  let grandOk = false;
+
+  for (const row of allRows) {
+    const { h, pd, formulaResult, hasFormula, effYield, c } = row;
+    const sym = h.symbol.toUpperCase();
+    if (!symTotals[sym]) symTotals[sym] = { valJpy:0, divJpy:0, mDivJpy:0 };
+
+    if (pd) {
+      symTotals[sym].valJpy  += pd.valJpy;
+      symTotals[sym].divJpy  += c.divJpy;
+      symTotals[sym].mDivJpy += c.mDivJpy;
+      grand.valUsd  += pd.valUsd;  grand.valJpy  += pd.valJpy;
+      grand.divUsd  += c.divUsd;   grand.divJpy  += c.divJpy;
+      grand.mDivJpy += c.mDivJpy;  grandOk = true;
+    }
+
+    // 年利セル
+    let yieldCell;
+    if (hasFormula && formulaResult !== null) {
+      yieldCell = `<span class="yield-auto" title="計算式から自動計算">${fYield(formulaResult)}</span>`;
+    } else if (hasFormula && formulaResult === null) {
+      yieldCell = `<span class="yield-pending" title="価格取得後に計算">${fYield(h.annualYield)}</span>`;
+    } else {
+      yieldCell = editable(fYield(h.annualYield), h.id, 'annualYield', 'number');
+    }
+
+    // 計算式セル
+    const fText = (h.formula || '').replace(/</g,'&lt;');
+    const formulaCell = `<span class="formula-text editable ${h.formula ? 'formula-active' : 'formula-empty'}" onclick="startEditFormula(this,${h.id})">${h.formula ? fText.replace(/\n/g,'<br>') : '計算式を入力…'}</span>`;
+
+    const tr = document.createElement('tr');
+    tr.className = 'data-row';
+    const valCell = pd
+      ? `${fJpy(pd.valJpy)}<br><span class="val-usd">${fUsdBig(pd.valUsd)}</span>`
+      : '---';
+    tr.innerHTML = `
+      <td class="left"><span class="drag-handle" title="ドラッグで並び替え">⠿</span>${editable(h.symbol, h.id, 'symbol')}</td>
+      <td class="left">${editable(h.exchange||'', h.id, 'exchange')}</td>
+      <td class="priv">${editable(fQty(h.quantity), h.id, 'quantity', 'number')}</td>
+      <td style="white-space:nowrap;line-height:1.4">${pd ? `${fJpyPrice(pd.priceJpy)}<br><span class="val-usd">${fUsd(pd.priceUsd)}</span>` : '<span class="loading-indicator">取得中…</span>'}</td>
+      <td class="priv" style="white-space:nowrap;line-height:1.4">${valCell}</td>
+      <td>${yieldCell}</td>
+      <td class="priv">${pd ? fJpy(c.divJpy) : '---'}</td>
+      <td class="priv">${pd ? fJpy(c.mDivJpy) : '---'}</td>
+      <td class="left">${formulaCell}</td>
+      <td class="center"><button class="btn btn-danger" onclick="deleteRow(${h.id})">✕</button></td>
+    `;
+    attachDrag(tr, h.id);
+    tbody.appendChild(tr);
+  }
+
+  // ④ サマリーカード更新
+  if (grandOk) {
+    document.getElementById('c-val').textContent     = fJpy(grand.valJpy);
+    document.getElementById('c-val-usd').textContent = fUsdBig(grand.valUsd);
+    updateCharts(symTotals);
+    updateHoldingsDetail(symTotals, grand);
+    updateAnnualDetail(symTotals, grand);
+  }
+}
+
+// ═══════════════════════════════════════════
+//  ADD MODAL
+// ═══════════════════════════════════════════
+window.openAdd = function() { document.getElementById('add-overlay').classList.add('open'); document.getElementById('a-sym').focus(); };
+window.closeAdd = function() { document.getElementById('add-overlay').classList.remove('open'); };
+window.addRow = function() {
+  const sym   = document.getElementById('a-sym').value.trim().toUpperCase();
+  const ex    = document.getElementById('a-ex').value.trim();
+  const qty   = parseFloat(document.getElementById('a-qty').value) || 0;
+  const yld   = parseFloat(document.getElementById('a-yield').value) || 0;
+  const note  = document.getElementById('a-note').value.trim();
+  const cgid  = document.getElementById('a-cgid').value.trim().toLowerCase();
+  if (!sym) { alert('銘柄シンボルを入力してください'); return; }
+  if (cgid) coinIds[sym] = cgid;
+  else if (!coinIds[sym]) coinIds[sym] = sym.toLowerCase();
+  holdings.push({ id: nextId++, symbol: sym, exchange: ex, quantity: qty, annualYield: yld, formula: note });
+  saveLS(); closeAdd();
+  ['a-sym','a-ex','a-qty','a-yield','a-note','a-cgid'].forEach(id => document.getElementById(id).value = '');
+  fetchPrices();
+};
+
+// ═══════════════════════════════════════════
+//  SETTINGS MODAL
+// ═══════════════════════════════════════════
+window.closeSettings = function() { document.getElementById('settings-overlay').classList.remove('open'); };
+function renderMapList() {
+  document.getElementById('map-list').innerHTML = Object.entries(coinIds)
+    .sort((a,b)=>a[0].localeCompare(b[0]))
+    .map(([s,id]) => `
+      <div class="map-item">
+        <input value="${s}" readonly style="background:#f8fafc;color:#64748b;" />
+        <input value="${id}" onchange="coinIds['${s}']=this.value.trim();saveLS();" />
+        <button class="btn btn-danger btn-sm" onclick="delMapping('${s}')">✕</button>
+      </div>`).join('');
+}
+window.openFormulaGuide  = function() { document.getElementById('guide-overlay').classList.add('open'); };
+window.closeFormulaGuide = function() { document.getElementById('guide-overlay').classList.remove('open'); };
+
+window.addMapping = function() {
+  const s=document.getElementById('ms').value.trim().toUpperCase();
+  const id=document.getElementById('mid').value.trim().toLowerCase();
+  if (!s||!id) return;
+  coinIds[s]=id; saveLS();
+  document.getElementById('ms').value=''; document.getElementById('mid').value='';
+  renderMapList();
+};
+window.delMapping = function(s) { delete coinIds[s]; saveLS(); renderMapList(); };
+
+document.querySelectorAll('.overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target===ov) ov.classList.remove('open'); });
+});
+
+// ═══════════════════════════════════════════
+//  GITHUB GIST 同期
+// ═══════════════════════════════════════════
+const GIST_FILENAME = 'crypto-dashboard-data.json';
+const GH_HEADERS = () => ({
+  'Authorization': `token ${ghToken}`,
+  'Accept': 'application/vnd.github.v3+json',
+  'Content-Type': 'application/json',
+});
+
+function setSyncStatus(status, msg = '') {
+  const el  = document.getElementById('sync-status');
+  const mel = document.getElementById('sync-status-modal');
+  let html = '', color = '#64748b';
+  if (status === 'pending')  { html = '☁ 同期待ち…';  color = '#94a3b8'; }
+  if (status === 'syncing')  { html = '<span class="spin" style="border-color:#475569;border-top-color:#93c5fd;"></span> 同期中…'; color = '#94a3b8'; }
+  if (status === 'ok')       { html = '☁ 同期済み ' + new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); color = '#10b981'; }
+  if (status === 'error')    { html = '⚠ 同期失敗: ' + msg; color = '#ef4444'; }
+  if (status === 'none')     { html = ''; }
+  if (el)  { el.innerHTML = html; el.style.color = color; }
+  if (mel) { mel.innerHTML = html; mel.style.color = color; }
+}
+
+async function gistLoad() {
+  if (!ghToken || !ghGistId) return false;
+  try {
+    const r = await fetch(`https://api.github.com/gists/${ghGistId}`, { headers: GH_HEADERS() });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const data = await r.json();
+    const content = data.files[GIST_FILENAME]?.content;
+    if (!content) return false;
+    const parsed = JSON.parse(content);
+    if (parsed.holdings) { holdings = parsed.holdings; nextId = Math.max(0, ...holdings.map(h=>h.id)) + 1; }
+    if (parsed.coinIds)  coinIds = parsed.coinIds;
+    try { localStorage.setItem('holdings2', JSON.stringify(holdings)); localStorage.setItem('coinIds', JSON.stringify(coinIds)); } catch(e){}
+    return true;
+  } catch(e) { return false; }
+}
+
+async function gistSave() {
+  if (!ghToken) return;
+  setSyncStatus('syncing');
+  try {
+    const content = JSON.stringify({ holdings, coinIds }, null, 2);
+    const body = JSON.stringify({ description: '暗号資産評価額・配当金ダッシュボード', files: { [GIST_FILENAME]: { content } } });
+    const createGist = async () => {
+      const r2 = await fetch('https://api.github.com/gists', { method:'POST', headers: GH_HEADERS(), body: JSON.stringify({ ...JSON.parse(body), public: false }) });
+      if (r2.ok) {
+        const d = await r2.json();
+        ghGistId = d.id;
+        localStorage.setItem('ghGistId', ghGistId);
+        updateGistInfo();
+      }
+      return r2;
+    };
+    let r;
+    if (ghGistId) {
+      r = await fetch(`https://api.github.com/gists/${ghGistId}`, { method:'PATCH', headers: GH_HEADERS(), body });
+      if (r.status === 404) {
+        // Gistが存在しない → 新規作成にフォールバック
+        ghGistId = ''; localStorage.removeItem('ghGistId');
+        r = await createGist();
+      }
+    } else {
+      r = await createGist();
+    }
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    setSyncStatus('ok');
+  } catch(e) { setSyncStatus('error', e.message); }
+}
+
+function updateGistInfo() {
+  const el = document.getElementById('gist-info');
+  const db = document.getElementById('disconnect-btn');
+  if (!el) return;
+  if (ghToken && ghGistId) {
+    el.innerHTML = `接続中 ✓　Gist ID: <a href="https://gist.github.com/${ghGistId}" target="_blank" style="color:var(--accent);font-family:monospace;">${ghGistId.slice(0,12)}…</a>`;
+    if (db) db.style.display = 'inline-flex';
+  } else if (ghToken) {
+    el.textContent = 'トークン入力済み。「接続」を押すと初回同期を実行します。';
+    if (db) db.style.display = 'none';
+  } else {
+    el.textContent = '';
+    if (db) db.style.display = 'none';
+  }
+}
+
+window.connectGist = async function() {
+  const inp = document.getElementById('gh-token-input');
+  const token = inp ? inp.value.trim() : '';
+  if (!token) { alert('トークンを入力してください'); return; }
+  ghToken = token;
+  ghGistId = '';  // 必ずリセット
+  localStorage.setItem('ghToken', ghToken);
+  localStorage.removeItem('ghGistId');
+  setSyncStatus('syncing');
+
+  // ① トークン有効性確認
+  const testR = await fetch('https://api.github.com/user', { headers: GH_HEADERS() });
+  if (!testR.ok) {
+    setSyncStatus('error', `トークンが無効です (HTTP ${testR.status})`);
+    ghToken = ''; localStorage.removeItem('ghToken');
+    return;
+  }
+
+  // ② gistスコープ確認（404が返る = スコープなし）
+  const scopeR = await fetch('https://api.github.com/gists?per_page=1', { headers: GH_HEADERS() });
+  if (!scopeR.ok) {
+    setSyncStatus('error', `gistスコープがありません。トークンを再発行してください (HTTP ${scopeR.status})`);
+    ghToken = ''; localStorage.removeItem('ghToken');
+    return;
+  }
+
+  // ④ 既存のGistをファイル名で検索
+  try {
+    const listR = await fetch('https://api.github.com/gists?per_page=100', { headers: GH_HEADERS() });
+    if (listR.ok) {
+      const gists = await listR.json();
+      const found = gists.find(g => g.files && g.files[GIST_FILENAME]);
+      if (found) {
+        ghGistId = found.id;
+        localStorage.setItem('ghGistId', ghGistId);
+      }
+    }
+  } catch(e) {}
+
+  // ③ 保存（なければ新規作成）
+  await gistSave();
+  updateGistInfo();
+  if (inp) inp.value = '';
+};
+
+window.disconnectGist = function() {
+  if (!confirm('同期の接続を解除しますか？\n（ローカルのデータは残ります。GitHubのGistは削除されません）')) return;
+  ghToken = ''; ghGistId = '';
+  localStorage.removeItem('ghToken'); localStorage.removeItem('ghGistId');
+  setSyncStatus('none');
+  updateGistInfo();
+};
+
+window.openSettings = function() {
+  renderMapList();
+  updateGistInfo();
+  const inp = document.getElementById('gh-token-input');
+  if (inp) inp.placeholder = ghToken ? '（設定済み — 変更する場合は新しいトークンを入力）' : 'ghp_xxxxxxxxxxxx（Personal Access Token）';
+  document.getElementById('settings-overlay').classList.add('open');
+};
+
+// ═══════════════════════════════════════════
+//  PRIVACY TOGGLE
+// ═══════════════════════════════════════════
+function togglePrivacy() {
+  document.body.classList.toggle('priv-on');
+  document.getElementById('privacy-btn').classList.toggle('active');
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+(async function init() {
+  render();
+  if (ghToken && ghGistId) {
+    setSyncStatus('syncing');
+    const ok = await gistLoad();
+    if (ok) { render(); setSyncStatus('ok'); }
+    else     setSyncStatus('error', '読み込み失敗');
+  } else if (!ghToken) {
+    // 未接続時は案内を表示
+    const tbody = document.getElementById('tbody');
+    if (tbody && holdings.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;">
+        ⚙ <strong>コイン設定</strong> を開いて GitHub Gist と接続するとデータが表示されます
+      </td></tr>`;
+    }
+  }
+  fetchPrices();
+})();
+</script>
+</body>
+</html>
