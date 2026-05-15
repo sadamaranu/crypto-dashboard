@@ -124,6 +124,7 @@ tr.data-row:hover td { background: var(--hover-bg); }
   cursor: pointer; display: inline-block; border-radius: 4px;
   padding: 2px 5px; min-width: 20px;
   border: 1px solid transparent; transition: border-color .12s, background .12s;
+  text-align: inherit;
 }
 .editable:hover { border-color: var(--edit-ring); background: #eff6ff; }
 .edit-input {
@@ -153,13 +154,18 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
 .formula-empty  { color: #cbd5e0; font-style: italic; }
 
 /* 年利セル */
-.yield-auto { font-weight: 600; }
-.yield-pending { color: #94a3b8; font-style: italic; }
+.yield-auto { font-weight: 400; display: inline-block; position: relative; text-align: right; padding: 2px 5px; }
+.yield-auto::before { content: 'f'; font-size: 9px; color: #94a3b8; position: absolute; left: -11px; top: 50%; transform: translateY(-50%); }
+.yield-pending { color: #94a3b8; font-style: italic; display: inline-block; text-align: right; padding: 2px 5px; }
 
 /* misc */
 .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
 .loading-indicator { color: #a0aec0; font-style: italic; font-size: 11px; }
 .val-usd { font-size: 10px; color: var(--text-muted); font-weight: 400; }
+/* price-stack: デスクトップは縦並び（¥上 $下） */
+.price-stack { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.4; white-space: nowrap; }
+.ps-jpy { font-weight: 600; }
+.ps-usd { font-size: 10px; }
 .spin {
   display: inline-block; width: 13px; height: 13px;
   border: 2px solid #334155; border-top-color: #93c5fd;
@@ -195,10 +201,120 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
 .guide-note { font-size:11px; color:var(--text-muted); margin-top:8px; line-height:1.7; }
 .guide-note code { background:#e2e8f0; padding:1px 5px; border-radius:3px; font-size:10px; }
 
+/* ── タブレット ── */
 @media (max-width: 860px) {
   .summary { grid-template-columns: 1fr; }
   header { padding: 12px 14px; }
   .table-wrap { padding: 12px 10px 24px; }
+}
+
+/* ── スマホ ── */
+@media (max-width: 640px) {
+  /* Header */
+  header { padding: 10px 12px; gap: 8px; }
+  header h1 { font-size: 13px; }
+  .header-right { gap: 7px; }
+  .rate-pill { font-size: 11px; padding: 3px 8px; }
+  #ts { display: none; }
+  .btn-ghost #refresh-icon { display: none; }
+  #refresh-btn { padding: 7px 9px; }
+
+  /* Summary cards */
+  .summary { padding: 10px 12px 4px; gap: 10px; }
+  .card { padding: 12px 12px 10px; }
+  .card-value { font-size: 17px; }
+  .card-body { gap: 6px; }
+
+  /* Holdings detail rows in card */
+  .holding-row {
+    grid-template-columns: 36px 1fr 44px;
+    font-size: 11px;
+    gap: 3px 5px;
+    padding: 5px 0;
+  }
+  .h-price { font-size: 11px; }
+
+  /* Toolbar */
+  .table-wrap { padding: 10px 12px 24px; }
+  .toolbar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .toolbar-hint { display: none; }
+  .toolbar > div { width: 100%; display: flex; gap: 8px; }
+  .toolbar > div button { flex: 1; justify-content: center; }
+
+  /* ── Table → Card mode ── */
+  .table-container {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+  table { min-width: 0 !important; display: block; }
+  thead { display: none; }
+  tbody { display: block; }
+
+  tr.data-row {
+    display: block;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    padding: 10px 14px;
+    cursor: default;
+  }
+  tr.data-row:hover td { background: transparent !important; }
+
+  tr.data-row td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: right;
+    padding: 5px 0;
+    border: none !important;
+    white-space: normal;
+    font-size: 12px;
+    background: transparent !important;
+  }
+  tr.data-row td::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-align: left;
+    flex-shrink: 0;
+    margin-right: 8px;
+    min-width: 58px;
+  }
+  /* 銘柄セル → カードのヘッダー行 */
+  tr.data-row td.mob-symbol {
+    font-size: 14px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--border) !important;
+    padding-bottom: 8px;
+    margin-bottom: 3px;
+    justify-content: flex-start;
+    gap: 6px;
+  }
+  tr.data-row td.mob-symbol::before { display: none; }
+  /* ラベルなしセル */
+  tr.data-row td[data-label=""]::before { display: none; }
+  /* 削除ボタン */
+  tr.data-row td.mob-delete {
+    justify-content: flex-end;
+    border-top: 1px solid var(--border) !important;
+    margin-top: 3px;
+    padding-top: 8px;
+  }
+  /* 計算式セル */
+  tr.data-row td[data-label="計算式"] { align-items: center; }
+  .formula-text { font-size: 11px; text-align: right; max-width: 100%; white-space: pre-wrap; }
+
+  /* 合計行 */
+  tr:not(.data-row) { display: none; }
+
+  /* Modal */
+  .modal { padding: 18px 16px; }
+  .form-row { grid-template-columns: 90px 1fr; }
+  .guide-example { font-size: 11px; }
 }
 </style>
 </head>
@@ -400,10 +516,12 @@ const DEFAULT_HOLDINGS = [];
 const DEFAULT_IDS = {
   'BTC':'bitcoin','ETH':'ethereum','XRP':'ripple','SOL':'solana',
   'ADA':'cardano','BNB':'binancecoin','DOGE':'dogecoin','DOT':'polkadot',
-  'MATIC':'matic-network','TRUMP':'official-trump','FLR':'flare-networks',
+  'MATIC':'matic-network','TRUMP':'official-trump','FLR':'flare',
   'NEXO':'nexo','LINK':'chainlink','UNI':'uniswap','AVAX':'avalanche-2',
   'LTC':'litecoin','TRX':'tron','ATOM':'cosmos','XLM':'stellar',
   'SHIB':'shiba-inu','PEPE':'pepe','OP':'optimism','ARB':'arbitrum',
+  'USDT':'tether','USDC':'usd-coin','BUSD':'binance-usd','DAI':'dai',
+  'SUI':'sui','TON':'toncoin','APT':'aptos','INJ':'injective',
 };
 
 const BADGE_COLORS = {
@@ -432,6 +550,8 @@ function getChartColor(sym, i) {
 // ═══════════════════════════════════════════
 let holdings = loadLS('holdings2') || DEFAULT_HOLDINGS.map(h=>({...h}));
 let coinIds   = loadLS('coinIds')   || {...DEFAULT_IDS};
+// DEFAULT_IDSに新規追加されたシンボルを既存coinIdsに補完
+Object.entries(DEFAULT_IDS).forEach(([sym, id]) => { if (!coinIds[sym]) coinIds[sym] = id; });
 let prices    = {};
 let usdJpy    = null;
 let nextId    = Math.max(0, ...holdings.map(h=>h.id)) + 1;
@@ -950,20 +1070,23 @@ function render() {
 
     const tr = document.createElement('tr');
     tr.className = 'data-row';
+    const priceCell = pd
+      ? `<div class="price-stack"><span class="ps-jpy">${fJpyPrice(pd.priceJpy)}</span><span class="val-usd ps-usd">${fUsd(pd.priceUsd)}</span></div>`
+      : '<span class="loading-indicator">取得中…</span>';
     const valCell = pd
-      ? `${fJpy(pd.valJpy)}<br><span class="val-usd">${fUsdBig(pd.valUsd)}</span>`
+      ? `<div class="price-stack"><span class="ps-jpy">${fJpy(pd.valJpy)}</span><span class="val-usd ps-usd">${fUsdBig(pd.valUsd)}</span></div>`
       : '---';
     tr.innerHTML = `
-      <td class="left"><span class="drag-handle" title="ドラッグで並び替え">⠿</span>${editable(h.symbol, h.id, 'symbol')}</td>
-      <td class="left">${editable(h.exchange||'', h.id, 'exchange')}</td>
-      <td class="priv">${editable(fQty(h.quantity), h.id, 'quantity', 'number')}</td>
-      <td style="white-space:nowrap;line-height:1.4">${pd ? `${fJpyPrice(pd.priceJpy)}<br><span class="val-usd">${fUsd(pd.priceUsd)}</span>` : '<span class="loading-indicator">取得中…</span>'}</td>
-      <td class="priv" style="white-space:nowrap;line-height:1.4">${valCell}</td>
-      <td>${yieldCell}</td>
-      <td class="priv">${pd ? fJpy(c.divJpy) : '---'}</td>
-      <td class="priv">${pd ? fJpy(c.mDivJpy) : '---'}</td>
-      <td class="left">${formulaCell}</td>
-      <td class="center"><button class="btn btn-danger" onclick="deleteRow(${h.id})">✕</button></td>
+      <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span>${editable(h.symbol, h.id, 'symbol')}</td>
+      <td class="left" data-label="取引所">${editable(h.exchange||'', h.id, 'exchange')}</td>
+      <td class="priv" data-label="枚数">${editable(fQty(h.quantity), h.id, 'quantity', 'number')}</td>
+      <td data-label="現在価格">${priceCell}</td>
+      <td class="priv" data-label="評価額">${valCell}</td>
+      <td data-label="年利">${yieldCell}</td>
+      <td class="priv" data-label="年間配当">${pd ? fJpy(c.divJpy) : '---'}</td>
+      <td class="priv" data-label="月間配当">${pd ? fJpy(c.mDivJpy) : '---'}</td>
+      <td class="left" data-label="計算式">${formulaCell}</td>
+      <td class="center mob-delete" data-label=""><button class="btn btn-danger" onclick="deleteRow(${h.id})">✕</button></td>
     `;
     attachDrag(tr, h.id);
     tbody.appendChild(tr);
@@ -1063,6 +1186,7 @@ async function gistLoad() {
     const content = data.files[GIST_FILENAME]?.content;
     if (!content) return false;
     const parsed = JSON.parse(content);
+    // Gistにデータがあればロード、空なら手元データをGistに保存
     if (parsed.holdings && parsed.holdings.length > 0) {
       holdings = parsed.holdings;
       nextId = Math.max(0, ...holdings.map(h=>h.id)) + 1;
