@@ -725,10 +725,11 @@ function fJpyPrice(n) {
   if (n == null) return '---';
   return '¥' + n.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function badge(sym) {
+function badge(sym, hid = null) {
   const s = sym.toUpperCase();
   const c = BADGE_COLORS[s] || { bg:'#f1f5f9', color:'#475569' };
-  return `<span class="badge" style="background:${c.bg};color:${c.color}">${s}</span>`;
+  const edit = hid === null ? '' : ` onclick="startEdit(this,${hid},'symbol','text')" title="クリックで編集"`;
+  return `<span class="badge${hid === null ? '' : ' editable'}" style="background:${c.bg};color:${c.color}"${edit}>${s}</span>`;
 }
 
 // ═══════════════════════════════════════════
@@ -1077,7 +1078,7 @@ function render() {
       ? `<div class="price-stack"><span class="ps-jpy">${fJpy(pd.valJpy)}</span><span class="val-usd ps-usd">${fUsdBig(pd.valUsd)}</span></div>`
       : '---';
     tr.innerHTML = `
-      <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span>${editable(h.symbol, h.id, 'symbol')}</td>
+      <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span>${badge(h.symbol, h.id)}</td>
       <td class="left" data-label="取引所">${editable(h.exchange||'', h.id, 'exchange')}</td>
       <td class="priv" data-label="枚数">${editable(fQty(h.quantity), h.id, 'quantity', 'number')}</td>
       <td data-label="現在価格">${priceCell}</td>
