@@ -104,7 +104,7 @@ header h1 { font-size: 17px; font-weight: 700; }
 .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
 .toolbar-hint { font-size: 11px; color: var(--text-muted); }
 .table-container { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; min-width: 980px; }
+table { width: max-content; min-width: 100%; table-layout: auto; border-collapse: collapse; }
 th {
   background: #f8fafc; padding: 9px 10px;
   font-size: 11px; font-weight: 700; color: var(--text-muted);
@@ -147,11 +147,13 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
 
 /* 計算式セル */
 .formula-text {
-  max-width: 200px; white-space: pre-wrap; word-break: break-word;
+  white-space: pre;
   font-size: 11px; line-height: 1.5; text-align: left;
 }
 .formula-active { color: var(--text); }
 .formula-empty  { color: #cbd5e0; font-style: italic; }
+.memo-text { white-space: pre; font-size: 11px; line-height: 1.5; text-align: left; }
+.memo-empty { color: #cbd5e0; font-style: italic; }
 
 /* 年利セル */
 .yield-auto { font-weight: 400; display: inline-block; position: relative; text-align: right; padding: 2px 5px; }
@@ -248,7 +250,7 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
     box-shadow: none;
     overflow: visible;
   }
-  table { min-width: 0 !important; display: block; }
+  table { width: 100%; min-width: 0 !important; display: block; }
   thead { display: none; }
   tbody { display: block; }
 
@@ -307,6 +309,7 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
   /* 計算式セル */
   tr.data-row td[data-label="計算式"] { align-items: center; }
   .formula-text { font-size: 11px; text-align: right; max-width: 100%; white-space: pre-wrap; }
+  .memo-text { text-align: right; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
 
   /* 合計行 */
   tr:not(.data-row) { display: none; }
@@ -369,7 +372,7 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
 
 <div class="table-wrap">
   <div class="toolbar">
-    <span class="toolbar-hint">✎ 銘柄・取引所・枚数をクリックで編集　｜　計算式に条件式を入力すると年利が自動計算されます</span>
+    <span class="toolbar-hint">✎ 銘柄・取引所・枚数・メモをクリックで編集　｜　計算式に条件式を入力すると年利が自動計算されます</span>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-ghost btn-sm" onclick="openSettings()">⚙ コイン設定</button>
       <button class="btn btn-primary" onclick="openAdd()">＋ 銘柄を追加</button>
@@ -379,16 +382,17 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
     <table>
       <thead>
         <tr>
-          <th class="left" style="width:80px">銘柄</th>
-          <th class="left" style="width:120px">取引所</th>
-          <th style="width:100px">枚数</th>
-          <th style="width:110px">現在価格</th>
-          <th style="width:130px">評価額</th>
-          <th style="width:72px">年利</th>
-          <th style="width:110px">年間配当</th>
-          <th style="width:110px">月間配当</th>
-          <th class="left" style="width:200px">計算式 <button onclick="openFormulaGuide()" style="background:none;border:1px solid #cbd5e0;border-radius:10px;padding:0 5px;font-size:10px;cursor:pointer;color:#718096;font-weight:600;line-height:1.4;" title="計算式の書き方を見る">?</button></th>
-          <th class="center" style="width:50px">削除</th>
+          <th class="left">銘柄</th>
+          <th class="left">取引所</th>
+          <th>枚数</th>
+          <th>現在価格</th>
+          <th>評価額</th>
+          <th>年利</th>
+          <th>年間配当</th>
+          <th>月間配当</th>
+          <th class="left">計算式 <button onclick="openFormulaGuide()" style="background:none;border:1px solid #cbd5e0;border-radius:10px;padding:0 5px;font-size:10px;cursor:pointer;color:#718096;font-weight:600;line-height:1.4;" title="計算式の書き方を見る">?</button></th>
+          <th class="left">メモ</th>
+          <th class="center">削除</th>
         </tr>
       </thead>
       <tbody id="tbody"></tbody>
@@ -409,6 +413,7 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
     <div class="form-row"><label>枚数</label><input id="a-qty" type="number" step="any" placeholder="0" /></div>
     <div class="form-row"><label>年利 (%)</label><input id="a-yield" type="number" step="0.01" placeholder="計算式未入力時に使用" /></div>
     <div class="form-row"><label>計算式</label><textarea id="a-note" placeholder="例：≦50000 USDT: 8.75%&#10;>50000 USDT: 6%&#10;&#10;空欄なら年利を手入力"></textarea></div>
+    <div class="form-row"><label>メモ</label><textarea id="a-memo" placeholder="自由に入力できます"></textarea></div>
     <div class="form-row"><label>CoinGecko ID</label><input id="a-cgid" placeholder="例: bitcoin（省略可）" /></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeAdd()">キャンセル</button>
@@ -914,6 +919,9 @@ function editable(display, hid, field, type = 'text') {
   const d = String(display).replace(/</g,'&lt;').replace(/>/g,'&gt;');
   return `<span class="editable" onclick="startEdit(this,${hid},'${field}','${type}')">${d}</span>`;
 }
+function escapeHtml(value) {
+  return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 
 window.startEdit = function(el, hid, field, type) {
   const h = holdings.find(x => x.id === hid);
@@ -970,6 +978,19 @@ window.startEditFormula = function(el, hid) {
   ta.onkeydown = e => { if (e.key === 'Escape') { ta.onblur = null; render(); } };
 
   el.replaceWith(wrap); ta.focus();
+};
+
+window.startEditMemo = function(el, hid) {
+  const h = holdings.find(x => x.id === hid);
+  if (!h) return;
+  const ta = document.createElement('textarea');
+  ta.className = 'edit-input';
+  ta.value = h.memo || '';
+  ta.style.cssText = 'width:240px;min-height:76px;resize:both;font-size:11px;line-height:1.5;';
+  ta.placeholder = 'メモを入力…';
+  ta.onblur = () => { h.memo = ta.value.trim(); saveLS(); render(); };
+  ta.onkeydown = e => { if (e.key === 'Escape') { ta.onblur = null; render(); } };
+  el.replaceWith(ta); ta.focus();
 };
 
 window.deleteRow = function(id) { holdings = holdings.filter(h => h.id !== id); saveLS(); render(); };
@@ -1066,8 +1087,10 @@ function render() {
     }
 
     // 計算式セル
-    const fText = (h.formula || '').replace(/</g,'&lt;');
+    const fText = escapeHtml(h.formula || '');
     const formulaCell = `<span class="formula-text editable ${h.formula ? 'formula-active' : 'formula-empty'}" onclick="startEditFormula(this,${h.id})">${h.formula ? fText.replace(/\n/g,'<br>') : '計算式を入力…'}</span>`;
+    const memoText = escapeHtml(h.memo || '');
+    const memoCell = `<span class="memo-text editable ${h.memo ? '' : 'memo-empty'}" onclick="startEditMemo(this,${h.id})">${h.memo ? memoText.replace(/\n/g,'<br>') : 'メモを入力…'}</span>`;
 
     const tr = document.createElement('tr');
     tr.className = 'data-row';
@@ -1087,6 +1110,7 @@ function render() {
       <td class="priv" data-label="年間配当">${pd ? fJpy(c.divJpy) : '---'}</td>
       <td class="priv" data-label="月間配当">${pd ? fJpy(c.mDivJpy) : '---'}</td>
       <td class="left" data-label="計算式">${formulaCell}</td>
+      <td class="left" data-label="メモ">${memoCell}</td>
       <td class="center mob-delete" data-label=""><button class="btn btn-danger" onclick="deleteRow(${h.id})">✕</button></td>
     `;
     attachDrag(tr, h.id);
@@ -1114,13 +1138,14 @@ window.addRow = function() {
   const qty   = parseFloat(document.getElementById('a-qty').value) || 0;
   const yld   = parseFloat(document.getElementById('a-yield').value) || 0;
   const note  = document.getElementById('a-note').value.trim();
+  const memo  = document.getElementById('a-memo').value.trim();
   const cgid  = document.getElementById('a-cgid').value.trim().toLowerCase();
   if (!sym) { alert('銘柄シンボルを入力してください'); return; }
   if (cgid) coinIds[sym] = cgid;
   else if (!coinIds[sym]) coinIds[sym] = sym.toLowerCase();
-  holdings.push({ id: nextId++, symbol: sym, exchange: ex, quantity: qty, annualYield: yld, formula: note });
+  holdings.push({ id: nextId++, symbol: sym, exchange: ex, quantity: qty, annualYield: yld, formula: note, memo });
   saveLS(); closeAdd();
-  ['a-sym','a-ex','a-qty','a-yield','a-note','a-cgid'].forEach(id => document.getElementById(id).value = '');
+  ['a-sym','a-ex','a-qty','a-yield','a-note','a-memo','a-cgid'].forEach(id => document.getElementById(id).value = '');
   fetchPrices();
 };
 
@@ -1341,7 +1366,7 @@ function togglePrivacy() {
     // 未接続時は案内を表示
     const tbody = document.getElementById('tbody');
     if (tbody && holdings.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;">
+      tbody.innerHTML = `<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;">
         ⚙ <strong>コイン設定</strong> を開いて GitHub Gist と接続するとデータが表示されます
       </td></tr>`;
     }
