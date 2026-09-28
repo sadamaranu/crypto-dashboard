@@ -71,6 +71,9 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .card-nums  { flex: 1; min-width: 0; }
 .card-value { font-size: clamp(26px, 2.6vw, 38px); letter-spacing: -.045em; font-weight: 650; color: var(--text); line-height: 1.2; }
 .card-sub   { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.annual-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 16px; margin-bottom: 12px; }
+.annual-heading .card-label { margin-bottom: 0; }
+.yield-heading { min-width: 132px; color: var(--text-muted); font-size: 12px; font-weight: 700; text-align: right; letter-spacing: .04em; }
 .annual-overview {
   display: grid; grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas: "amount yield" "pnl yield" "monthly yield";
@@ -79,13 +82,16 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .annual-overview #c-annual { grid-area: amount; }
 .annual-overview #c-annual-pnl { grid-area: pnl; }
 .annual-overview #c-annual-monthly { grid-area: monthly; }
-.yield-feature { grid-area: yield; min-width: 132px; padding: 10px 14px; border-radius: 12px; background: #eef5ee; text-align: right; }
-.yield-caption { font-size: 11px; font-weight: 700; color: #567865; }
-.yield-value { margin-top: 4px; color: var(--accent); font-size: 28px; font-weight: 700; letter-spacing: -.04em; line-height: 1.15; white-space: nowrap; }
+.yield-feature { grid-area: yield; min-width: 132px; text-align: right; }
+.yield-caption-mobile { display: none; font-size: 11px; font-weight: 700; color: #567865; }
+.yield-value { color: var(--accent); font-size: clamp(26px, 2.6vw, 38px); font-weight: 650; letter-spacing: -.045em; line-height: 1.2; white-space: nowrap; }
 @media (max-width: 640px) {
   .card-annual .annual-overview { grid-template-columns: minmax(0, 1fr); grid-template-areas: "amount" "yield" "pnl" "monthly"; min-height: 0; row-gap: 8px; }
-  .yield-feature { justify-self: stretch; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 2px 0; text-align: left; }
-  .yield-value { margin-top: 0; }
+  .annual-heading { display: block; }
+  .yield-heading { display: none; }
+  .yield-feature { justify-self: stretch; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 10px 14px; border-radius: 12px; background: #eef5ee; margin: 2px 0; text-align: left; }
+  .yield-caption-mobile { display: block; }
+  .yield-value { font-size: 28px; font-weight: 700; line-height: 1.15; }
 }
 
 
@@ -463,11 +469,14 @@ header { border-bottom: 1px solid var(--border); }
 
   <!-- 右：年間配当合計（拡張版） -->
   <div class="card card-annual">
-    <div class="card-label">年間配当合計</div>
+    <div class="annual-heading">
+      <div class="card-label">年間配当合計</div>
+      <div class="yield-heading">全体年利</div>
+    </div>
     <div class="card-body annual-overview">
       <div class="card-value priv" id="c-annual">¥ ---</div>
       <div class="yield-feature priv" title="年間配当合計 ÷ 評価額合計">
-        <div class="yield-caption">全体年利</div>
+        <div class="yield-caption-mobile">全体年利</div>
         <div class="yield-value" id="c-annual-yield">---</div>
       </div>
       <div class="pnl-row priv" id="c-annual-pnl"></div>
