@@ -499,13 +499,12 @@ header { border-bottom: 1px solid var(--border); }
       <thead>
         <tr>
           <th class="left">銘柄</th>
+          <th>現在価格</th>
           <th class="left">取引所</th>
           <th>枚数</th>
-          <th>現在価格</th>
           <th>評価額</th>
           <th>年利</th>
           <th>年間配当</th>
-          <th>月間配当</th>
           <th class="left">計算式 <button onclick="openFormulaGuide()" style="background:none;border:1px solid #cbd5e0;border-radius:10px;padding:0 5px;font-size:10px;cursor:pointer;color:#718096;font-weight:600;line-height:1.4;" title="計算式の書き方を見る">?</button></th>
           <th class="left">メモ</th>
           <th class="center">削除</th>
@@ -1231,13 +1230,12 @@ function render() {
       : '---';
     tr.innerHTML = `
       <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span><span class="symbol-with-logo">${coinLogo(h.symbol)}${symbolLabel(h.symbol, h.id)}</span></td>
+      <td data-label="現在価格">${priceCell}</td>
       <td class="left" data-label="取引所">${editable(h.exchange||'', h.id, 'exchange')}</td>
       <td class="priv" data-label="枚数">${editable(fQty(h.quantity), h.id, 'quantity', 'number')}</td>
-      <td data-label="現在価格">${priceCell}</td>
       <td class="priv" data-label="評価額">${valCell}</td>
       <td data-label="年利">${yieldCell}</td>
       <td class="priv" data-label="年間配当">${pd ? fMoney(c.divJpy, c.divUsd) : '---'}</td>
-      <td class="priv" data-label="月間配当">${pd ? fMoney(c.mDivJpy, c.divUsd / 12) : '---'}</td>
       <td class="left" data-label="計算式">${formulaCell}</td>
       <td class="left" data-label="メモ">${memoCell}</td>
       <td class="center mob-delete" data-label=""><button class="btn btn-danger" onclick="deleteRow(${h.id})">✕</button></td>
