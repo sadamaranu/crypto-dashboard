@@ -67,12 +67,14 @@ header h1 { font-size: 17px; font-weight: 700; }
 .card-nums  { flex: 1; min-width: 0; }
 .card-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.2; }
 .card-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-.card-chart { flex-shrink: 0; }
-.card-chart svg { display: block; }
-.card-legend { display: flex; flex-wrap: wrap; gap: 3px 10px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
-.leg-item { display: flex; align-items: center; gap: 5px; font-size: 10px; color: var(--text-muted); white-space: nowrap; }
-.leg-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-.leg-sym  { font-weight: 700; color: var(--text); }
+.card-chart { display: flex; align-items: center; gap: 16px; padding: 12px 0 4px; min-width: 0; }
+.chart-ring { width: 150px; height: 150px; flex: none; }
+.chart-ring svg { display: block; width: 100%; height: 100%; }
+.chart-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 14px; flex: 1; min-width: 0; }
+.chart-legend-item { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 11px; }
+.chart-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.chart-legend-name { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chart-legend-pct { color: var(--text-muted); margin-left: auto; white-space: nowrap; }
 
 /* ── 評価額詳細 ── */
 .pnl-row { font-size: 11px; margin-top: 3px; }
@@ -85,7 +87,7 @@ header h1 { font-size: 17px; font-weight: 700; }
 }
 .holding-row {
   display: grid;
-  grid-template-columns: 46px 90px 52px 1fr 1fr;
+  grid-template-columns: 78px 90px 52px 1fr 1fr;
   align-items: center;
   gap: 4px 8px;
   padding: 6px 2px;
@@ -93,6 +95,7 @@ header h1 { font-size: 17px; font-weight: 700; }
   font-size: 12px;
 }
 .holding-row:last-child { border-bottom: none; }
+.holding-row-annual { grid-template-columns: 78px 1fr 50px; }
 .h-price { text-align: right; font-weight: 600; font-size: 12px; }
 .h-change { font-size: 11px; font-weight: 700; text-align: right; }
 .h-qty  { color: var(--text-muted); font-size: 11px; text-align: right; }
@@ -161,7 +164,8 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
 .yield-pending { color: #94a3b8; font-style: italic; display: inline-block; text-align: right; padding: 2px 5px; }
 
 /* misc */
-.badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.symbol-label { display: inline-block; color: var(--text); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.symbol-label.editable:hover { background: transparent; }
 .symbol-with-logo { display: inline-flex; align-items: center; gap: 6px; }
 .coin-logo { width: 20px; height: 20px; flex: none; object-fit: contain; border-radius: 50%; }
 .loading-indicator { color: #a0aec0; font-style: italic; font-size: 11px; }
@@ -228,15 +232,19 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
   .card { padding: 12px 12px 10px; }
   .card-value { font-size: 17px; }
   .card-body { gap: 6px; }
+  .card-chart { gap: 10px; }
+  .chart-ring { width: 132px; height: 132px; }
+  .chart-legend { grid-template-columns: minmax(0, 1fr); gap: 4px; }
 
   /* Holdings detail rows in card */
   .holding-row {
-    grid-template-columns: 36px 1fr 44px;
+    grid-template-columns: 74px 1fr 44px;
     font-size: 11px;
     gap: 3px 5px;
     padding: 5px 0;
   }
   .h-price { font-size: 11px; }
+  .holding-row-annual { grid-template-columns: 74px 1fr 44px; }
 
   /* Toolbar */
   .table-wrap { padding: 10px 12px 24px; }
@@ -350,8 +358,8 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
         <div class="card-sub   priv" id="c-val-usd">$ ---</div>
         <div class="pnl-row    priv" id="c-val-pnl"></div>
       </div>
-      <div class="card-chart" id="chart-val"></div>
     </div>
+    <div class="card-chart priv" id="chart-val"></div>
     <div class="holdings-list priv" id="holdings-detail"></div>
   </div>
 
@@ -366,8 +374,8 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
         <div class="pnl-row    priv" id="c-annual-monthly" style="margin-top:2px;"></div>
         <div class="card-sub"        id="c-annual-yield"   style="margin-top:4px;"></div>
       </div>
-      <div class="card-chart" id="chart-annual"></div>
     </div>
+    <div class="card-chart priv" id="chart-annual"></div>
     <div class="holdings-list priv" id="annual-detail"></div>
   </div>
 </div>
@@ -531,26 +539,10 @@ const DEFAULT_IDS = {
   'SUI':'sui','TON':'toncoin','APT':'aptos','INJ':'injective',
 };
 
-const BADGE_COLORS = {
-  'XRP':  { bg:'#dbeafe', color:'#1d4ed8' },
-  'SOL':  { bg:'#dcfce7', color:'#15803d' },
-  'ADA':  { bg:'#ede9fe', color:'#6d28d9' },
-  'TRUMP':{ bg:'#ffedd5', color:'#c2410c' },
-  'FLR':  { bg:'#fee2e2', color:'#b91c1c' },
-  'NEXO': { bg:'#e0e7ff', color:'#3730a3' },
-  'BTC':  { bg:'#fef3c7', color:'#b45309' },
-  'ETH':  { bg:'#ede9fe', color:'#5b21b6' },
-};
-
-const CHART_COLORS = {
-  'XRP':'#3b82f6','SOL':'#22c55e','ADA':'#a855f7','TRUMP':'#f97316',
-  'FLR':'#ef4444','NEXO':'#6366f1','BTC':'#f59e0b','ETH':'#8b5cf6',
-  'BNB':'#eab308','DOGE':'#d97706','DOT':'#ec4899','LTC':'#6b7280',
-};
-const FALLBACK_PALETTE = ['#06b6d4','#84cc16','#f43f5e','#14b8a6','#fb923c'];
-function getChartColor(sym, i) {
-  return CHART_COLORS[sym.toUpperCase()] || FALLBACK_PALETTE[i % FALLBACK_PALETTE.length];
-}
+const CHART_PALETTE = [
+  '#4361ee','#10b981','#f59e0b','#8b5cf6','#ef4444','#06b6d4',
+  '#84cc16','#ec4899','#64748b','#f97316','#14b8a6','#a855f7',
+];
 
 // ═══════════════════════════════════════════
 //  STATE
@@ -760,11 +752,10 @@ function fJpyPrice(n) {
   if (n == null) return '---';
   return '¥' + n.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
-function badge(sym, hid = null) {
+function symbolLabel(sym, hid = null) {
   const s = sym.toUpperCase();
-  const c = BADGE_COLORS[s] || { bg:'#f1f5f9', color:'#475569' };
   const edit = hid === null ? '' : ` onclick="startEdit(this,${hid},'symbol','text')" title="クリックで編集"`;
-  return `<span class="badge${hid === null ? '' : ' editable'}" style="background:${c.bg};color:${c.color}"${edit}>${s}</span>`;
+  return `<span class="symbol-label${hid === null ? '' : ' editable'}"${edit}>${escapeHtml(s)}</span>`;
 }
 function coinLogo(sym) {
   const url = coinLogos[coinIds[sym.toUpperCase()]];
@@ -773,41 +764,45 @@ function coinLogo(sym) {
 }
 
 // ═══════════════════════════════════════════
-//  PIE CHART
+//  COMPOSITION CHART
 // ═══════════════════════════════════════════
-function makePie(segs, size = 88) {
-  const total = segs.reduce((s, x) => s + x.value, 0);
-  if (!total) {
-    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
-      <circle cx="${size/2}" cy="${size/2}" r="${size*.42}" fill="none" stroke="#e2e8f0" stroke-width="${size*.18}"/>
-    </svg>`;
-  }
-  const cx = size/2, cy = size/2, R = size*.42, r = size*.25, GAP = 0.018;
-  let paths = [], start = -Math.PI/2;
-  for (const seg of segs) {
-    if (seg.value <= 0) continue;
-    const full = seg.value / total * 2 * Math.PI;
-    const sw = Math.max(full - GAP, .001);
-    const end = start + sw;
-    const lg = sw > Math.PI ? 1 : 0;
-    const p = (a, rad) => [cx + rad*Math.cos(a), cy + rad*Math.sin(a)];
-    const [ox1,oy1]=p(start,R),[ox2,oy2]=p(end,R),[ix1,iy1]=p(start,r),[ix2,iy2]=p(end,r);
-    const ff = n => n.toFixed(2);
-    paths.push(`<path d="M${ff(ox1)},${ff(oy1)} A${R},${R} 0 ${lg},1 ${ff(ox2)},${ff(oy2)} L${ff(ix2)},${ff(iy2)} A${r},${r} 0 ${lg},0 ${ff(ix1)},${ff(iy1)} Z" fill="${seg.color}"/>`);
-    start += full;
-  }
-  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${paths.join('')}</svg>`;
+function formatShare(pct) {
+  if (pct > 0 && pct < 0.1) return '<0.1%';
+  return `${Number(pct.toFixed(1))}%`;
+}
+
+function makeCompositionChart(segments, title) {
+  const total = segments.reduce((sum, seg) => sum + seg.value, 0);
+  const radius = 53;
+  const circumference = 2 * Math.PI * radius;
+  let offset = 0;
+  const circles = segments.map(seg => {
+    const length = seg.value / total * circumference;
+    const gap = segments.length > 1 ? Math.min(2, length * 0.2) : 0;
+    const circle = `<circle cx="75" cy="75" r="${radius}" fill="none" stroke="${seg.color}" stroke-width="21" stroke-dasharray="${(length-gap).toFixed(3)} ${circumference.toFixed(3)}" stroke-dashoffset="${(-offset).toFixed(3)}" transform="rotate(-90 75 75)"><title>${escapeHtml(seg.label)} ${escapeHtml(formatShare(seg.value / total * 100))}</title></circle>`;
+    offset += length;
+    return circle;
+  }).join('');
+  const top = segments[0];
+  const center = top
+    ? `<text x="75" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="#1a202c">${escapeHtml(top.label)}</text><text x="75" y="89" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">${escapeHtml(formatShare(top.value / total * 100))}</text>`
+    : '<text x="75" y="79" text-anchor="middle" font-size="11" fill="#94a3b8">データなし</text>';
+  const svg = `<div class="chart-ring"><svg viewBox="0 0 150 150" role="img" aria-label="${escapeHtml(title)}の構成比"><circle cx="75" cy="75" r="${radius}" fill="none" stroke="#e2e8f0" stroke-width="21"/>${circles}${center}</svg></div>`;
+  const legend = segments.map(seg => `<div class="chart-legend-item"><span class="chart-legend-dot" style="background:${seg.color}"></span><span class="chart-legend-name" title="${escapeHtml(seg.label)}">${escapeHtml(seg.label)}</span><span class="chart-legend-pct">${escapeHtml(formatShare(seg.value / total * 100))}</span></div>`).join('');
+  return svg + `<div class="chart-legend">${legend}</div>`;
 }
 
 function updateCharts(symTotals) {
-  const syms = Object.keys(symTotals);
-  const cmap = {}; syms.forEach((s,i) => cmap[s] = getChartColor(s,i));
+  const syms = Object.keys(symTotals).sort();
+  const colors = Object.fromEntries(syms.map((sym, i) => [sym, CHART_PALETTE[i % CHART_PALETTE.length]]));
   [
-    { chartId:'chart-val',    key:'valJpy' },
-    { chartId:'chart-annual', key:'divJpy' },
-  ].forEach(({ chartId, key }) => {
-    const segs = syms.map(s => ({ label:s, value: symTotals[s][key]||0, color: cmap[s] })).filter(x=>x.value>0);
-    document.getElementById(chartId).innerHTML = makePie(segs);
+    { chartId:'chart-val', key:'valJpy', title:'評価額' },
+    { chartId:'chart-annual', key:'divJpy', title:'年間配当' },
+  ].forEach(({ chartId, key, title }) => {
+    const segments = syms.map(sym => ({ label:sym, value:symTotals[sym][key] || 0, color:colors[sym] }))
+      .filter(seg => seg.value > 0)
+      .sort((a, b) => b.value - a.value);
+    document.getElementById(chartId).innerHTML = makeCompositionChart(segments, title);
   });
 }
 
@@ -851,7 +846,6 @@ function updateHoldingsDetail(symTotals, grand) {
       const p  = prices[sym];
       const st = symTotals[sym];
       const qty = symQty[sym] || 0;
-      const c  = BADGE_COLORS[sym] || { bg:'#f1f5f9', color:'#475569' };
       const chg = p && p.change24h != null ? p.change24h : null;
       const chgCls  = chg == null ? '' : chg >= 0 ? 'pnl-pos' : 'pnl-neg';
       const chgText = chg == null ? '' : (chg >= 0 ? '▲' : '▼') + Math.abs(chg).toFixed(2) + '%';
@@ -867,7 +861,7 @@ function updateHoldingsDetail(symTotals, grand) {
       }
 
       return `<div class="holding-row">
-        <span class="badge" style="background:${c.bg};color:${c.color};font-size:10px;">${sym}</span>
+        <span class="symbol-with-logo">${coinLogo(sym)}${symbolLabel(sym)}</span>
         <div style="text-align:right">
           <div class="h-price">${p ? fJpyPrice(p.jpy) : '---'}</div>
           <div class="val-usd" style="font-size:10px;">${p ? fUsd(p.usd) : ''}</div>
@@ -929,15 +923,14 @@ function updateAnnualDetail(symTotals, grand) {
     .map(sym => {
       const p   = prices[sym];
       const st  = symTotals[sym];
-      const bc  = BADGE_COLORS[sym] || { bg:'#f1f5f9', color:'#475569' };
       const chg = p && p.change24h != null ? p.change24h : null;
       const chgCls  = chg == null ? '' : chg >= 0 ? 'pnl-pos' : 'pnl-neg';
       const chgText = chg == null ? '' : (chg >= 0 ? '▲' : '▼') + Math.abs(chg).toFixed(2) + '%';
       const monthly  = fJpy(st.divJpy / 12);
       const symYield = st.valJpy > 0 ? fYield(st.divJpy / st.valJpy * 100) : '---';
 
-      return `<div class="holding-row" style="grid-template-columns:46px 1fr 50px;">
-        <span class="badge" style="background:${bc.bg};color:${bc.color};font-size:10px;">${sym}</span>
+      return `<div class="holding-row holding-row-annual">
+        ${symbolLabel(sym)}
         <div style="text-align:right">
           <div class="h-val">${fJpy(st.divJpy)}</div>
           <div class="h-pnl" style="color:var(--text-muted);">${monthly}/月</div>
@@ -955,7 +948,7 @@ function editable(display, hid, field, type = 'text') {
   return `<span class="editable" onclick="startEdit(this,${hid},'${field}','${type}')">${d}</span>`;
 }
 function escapeHtml(value) {
-  return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return String(value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 window.startEdit = function(el, hid, field, type) {
@@ -1136,7 +1129,7 @@ function render() {
       ? `<div class="price-stack"><span class="ps-jpy">${fJpy(pd.valJpy)}</span><span class="val-usd ps-usd">${fUsdBig(pd.valUsd)}</span></div>`
       : '---';
     tr.innerHTML = `
-      <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span><span class="symbol-with-logo">${coinLogo(h.symbol)}${badge(h.symbol, h.id)}</span></td>
+      <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span><span class="symbol-with-logo">${coinLogo(h.symbol)}${symbolLabel(h.symbol, h.id)}</span></td>
       <td class="left" data-label="取引所">${editable(h.exchange||'', h.id, 'exchange')}</td>
       <td class="priv" data-label="枚数">${editable(fQty(h.quantity), h.id, 'quantity', 'number')}</td>
       <td data-label="現在価格">${priceCell}</td>
@@ -1153,10 +1146,10 @@ function render() {
   }
 
   // ④ サマリーカード更新
+  updateCharts(symTotals);
   if (grandOk) {
     document.getElementById('c-val').textContent     = fJpy(grand.valJpy);
     document.getElementById('c-val-usd').textContent = fUsdBig(grand.valUsd);
-    updateCharts(symTotals);
     updateHoldingsDetail(symTotals, grand);
     updateAnnualDetail(symTotals, grand);
   }
