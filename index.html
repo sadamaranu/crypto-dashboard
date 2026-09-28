@@ -374,39 +374,36 @@ header { border-bottom: 1px solid var(--border); }
   .form-row input, .form-row textarea { min-width: 0; width: 100%; }
 }
 
-/* Fixed positions for the valuation detail at every card width. */
+/* Valuation details: aligned values with price change beneath the yen price. */
+.holdings-list { margin-top: 12px; padding-top: 8px; }
+.holding-row:not(.holding-row-annual) {
+  grid-template-areas: "symbol price qty value";
+  grid-template-columns: minmax(70px, .9fr) minmax(150px, 1.8fr) minmax(72px, .9fr) minmax(110px, 1.2fr);
+}
+.holding-row:not(.holding-row-annual) .h-symbol { grid-area: symbol; min-width: 0; }
+.holding-row:not(.holding-row-annual) .h-price-cell { grid-area: price; min-width: 0; }
+.holding-row:not(.holding-row-annual) .h-qty { grid-area: qty; white-space: nowrap; }
+.holding-row:not(.holding-row-annual) .h-value-cell { grid-area: value; min-width: 0; }
+.h-price-line { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
 .holding-row:not(.holding-row-annual) .h-price,
 .holding-row:not(.holding-row-annual) .h-change,
 .holding-row:not(.holding-row-annual) .h-qty,
 .holding-row:not(.holding-row-annual) .h-val,
 .holding-row:not(.holding-row-annual) .h-pnl { text-align: left; }
-.holdings-list { margin-top: 12px; padding-top: 8px; }
-.holding-row:not(.holding-row-annual) .h-symbol { grid-area: symbol; min-width: 0; }
-.holding-row:not(.holding-row-annual) .h-price-cell { grid-area: price; min-width: 0; text-align: left; }
-.holding-row:not(.holding-row-annual) .h-change { grid-area: change; }
-.holding-row:not(.holding-row-annual) .h-qty { grid-area: qty; white-space: nowrap; }
-.holding-row:not(.holding-row-annual) .h-value-cell { grid-area: value; min-width: 0; text-align: left; }
-.holding-row:not(.holding-row-annual) {
-  grid-template-areas: "symbol price change qty value";
-  grid-template-columns: minmax(70px, 1fr) minmax(106px, 1.35fr) 58px minmax(76px, 1fr) minmax(110px, 1.25fr);
-}
-@media (min-width: 641px) and (max-width: 1200px) {
+.h-price-usd { font-size: 10px; font-weight: 400; color: var(--text-muted); }
+.h-price-cell .h-change { display: block; margin-top: 3px; line-height: 1.2; }
+@media (max-width: 1200px) {
   .holding-row:not(.holding-row-annual) {
-    grid-template-areas: "symbol price value" "change qty value";
-    grid-template-columns: 82px minmax(0, 1fr) minmax(110px, 1fr);
+    grid-template-areas: "symbol value" "price qty";
+    grid-template-columns: minmax(0, 1fr) minmax(105px, auto);
+    gap: 5px 10px;
   }
-  .holding-row:not(.holding-row-annual) .h-change { text-align: left; }
-  .holding-row:not(.holding-row-annual) .h-qty { text-align: left; }
 }
 @media (max-width: 640px) {
-  .holding-row:not(.holding-row-annual) {
-    grid-template-areas: "symbol price value" "change qty value";
-    grid-template-columns: 82px minmax(0, 1fr) minmax(105px, 1fr);
-    gap: 3px 6px;
-  }
-  .holding-row:not(.holding-row-annual) .h-change { text-align: left; }
-  .holding-row:not(.holding-row-annual) .h-qty { text-align: left; }
   .holding-row:not(.holding-row-annual) .h-price { font-size: 11px; }
+  .holding-row:not(.holding-row-annual) .h-qty { font-size: 10px; }
+  .h-price-line { gap: 5px; }
+  .h-price-usd { font-size: 9px; }
 }
 </style>
 </head>
@@ -893,10 +890,9 @@ function updateHoldingsDetail(symTotals, grand) {
       return `<div class="holding-row">
         <span class="symbol-with-logo h-symbol">${coinLogo(sym)}${symbolLabel(sym)}</span>
         <div class="h-price-cell">
-          <div class="h-price">${p ? fJpyPrice(p.jpy) : '---'}</div>
-          <div class="val-usd" style="font-size:10px;">${p ? fUsd(p.usd) : ''}</div>
+          <div class="h-price-line"><span class="h-price">${p ? fJpyPrice(p.jpy) : '---'}</span><span class="h-price-usd">${p ? fUsd(p.usd) : ''}</span></div>
+          <span class="h-change ${chgCls}">${chgText}</span>
         </div>
-        <span class="h-change ${chgCls}">${chgText}</span>
         <span class="h-qty">${fQty(qty)} ${sym}</span>
         <div class="h-value-cell">
           <div class="h-val">${fJpy(st.valJpy)}</div>
