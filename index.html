@@ -34,6 +34,10 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .rate-pill { background: #f3f5f1; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--text-muted); }
 .rate-pill span { color: var(--text); font-weight: 600; margin-left: 6px; }
 .ts { font-size: 11px; color: #64748b; }
+.currency-switch { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid var(--border); border-radius: 9px; background: #f3f5f1; }
+.currency-switch button { border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); padding: 6px 10px; font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.currency-switch button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+.currency-switch button:focus-visible { outline: 3px solid #a9c9b8; outline-offset: 2px; }
 
 /* ── BUTTONS ── */
 .btn {
@@ -161,11 +165,7 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
 .symbol-with-logo { display: inline-flex; align-items: center; gap: 8px; }
 .coin-logo { width: 22px; height: 22px; flex: none; object-fit: contain; border-radius: 50%; }
 .loading-indicator { color: #a0aec0; font-style: italic; font-size: 11px; }
-.val-usd { font-size: 10px; color: var(--text-muted); font-weight: 400; }
-/* price-stack: デスクトップは縦並び（¥上 $下） */
-.price-stack { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.4; white-space: nowrap; }
-.ps-jpy { font-weight: 600; }
-.ps-usd { font-size: 10px; }
+.price-value { font-weight: 600; white-space: nowrap; }
 .spin {
   display: inline-block; width: 13px; height: 13px;
   border: 2px solid #334155; border-top-color: #93c5fd;
@@ -384,13 +384,11 @@ header { border-bottom: 1px solid var(--border); }
 .holding-row:not(.holding-row-annual) .h-price-cell { grid-area: price; min-width: 0; }
 .holding-row:not(.holding-row-annual) .h-qty { grid-area: qty; white-space: nowrap; }
 .holding-row:not(.holding-row-annual) .h-value-cell { grid-area: value; min-width: 0; }
-.h-price-line { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
 .holding-row:not(.holding-row-annual) .h-price,
 .holding-row:not(.holding-row-annual) .h-change,
 .holding-row:not(.holding-row-annual) .h-qty,
 .holding-row:not(.holding-row-annual) .h-val,
 .holding-row:not(.holding-row-annual) .h-pnl { text-align: left; }
-.h-price-usd { font-size: 10px; font-weight: 400; color: var(--text-muted); }
 .h-price-cell .h-change { display: block; margin-top: 3px; line-height: 1.2; }
 @media (max-width: 1200px) {
   .holding-row:not(.holding-row-annual) {
@@ -402,8 +400,14 @@ header { border-bottom: 1px solid var(--border); }
 @media (max-width: 640px) {
   .holding-row:not(.holding-row-annual) .h-price { font-size: 11px; }
   .holding-row:not(.holding-row-annual) .h-qty { font-size: 10px; }
-  .h-price-line { gap: 5px; }
-  .h-price-usd { font-size: 9px; }
+}
+@media (max-width: 640px) {
+  .header-right { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; width: 100%; align-items: center; gap: 8px; }
+  .currency-switch { grid-column: 1; grid-row: 1; justify-self: start; }
+  #privacy-btn { grid-column: 2; grid-row: 1; }
+  #refresh-btn { grid-column: 3; grid-row: 1; }
+  .rate-pill { grid-column: 1 / 3; grid-row: 2; justify-self: start; margin: 0; }
+  #sync-status { grid-column: 3; grid-row: 2; justify-self: end; width: auto; }
 }
 </style>
 </head>
@@ -413,6 +417,10 @@ header { border-bottom: 1px solid var(--border); }
   <div class="brand"><span class="brand-mark" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 17V12M12 17V7M19 17V3"/></svg></span><div><h1>暗号資産ダッシュボード</h1><p>資産と配当を、ひと目で。</p></div></div>
   <div class="header-right">
     <div class="rate-pill">USD / JPY <span id="rate-val">---</span></div>
+    <div class="currency-switch" role="group" aria-label="表示通貨">
+      <button id="currency-jpy" type="button" onclick="setCurrency('JPY')" aria-pressed="true">¥ 円</button>
+      <button id="currency-usd" type="button" onclick="setCurrency('USD')" aria-pressed="false">$ ドル</button>
+    </div>
     <div class="ts" id="sync-status"></div>
     <div class="ts" id="ts">未取得</div>
     <button class="btn btn-ghost" id="privacy-btn" onclick="togglePrivacy()" title="プライバシーモード">
@@ -431,7 +439,6 @@ header { border-bottom: 1px solid var(--border); }
     <div class="card-body" style="align-items:flex-start;">
       <div class="card-nums">
         <div class="card-value priv" id="c-val">¥ ---</div>
-        <div class="card-sub   priv" id="c-val-usd">$ ---</div>
         <div class="pnl-row    priv" id="c-val-pnl"></div>
       </div>
     </div>
@@ -444,7 +451,6 @@ header { border-bottom: 1px solid var(--border); }
     <div class="card-body" style="align-items:flex-start;">
       <div class="card-nums">
         <div class="card-value priv" id="c-annual">¥ ---</div>
-        <div class="card-sub   priv" id="c-annual-usd">$ ---</div>
         <div class="pnl-row    priv" id="c-annual-pnl"></div>
         <div class="pnl-row    priv" id="c-annual-monthly" style="margin-top:2px;"></div>
         <div class="card-sub"        id="c-annual-yield"   style="margin-top:4px;"></div>
@@ -626,6 +632,7 @@ let coinLogos  = loadLS('coinLogos') || {};
 let coinLogosUpdatedAt = Number(localStorage.getItem('coinLogosUpdatedAt')) || 0;
 let prices    = {};
 let usdJpy    = null;
+let displayCurrency = localStorage.getItem('displayCurrency') === 'USD' ? 'USD' : 'JPY';
 let nextId    = Math.max(0, ...holdings.map(h=>h.id)) + 1;
 let dragId    = null;
 let ghToken   = localStorage.getItem('ghToken')  || '';
@@ -687,6 +694,8 @@ async function fetchPrices() {
         usd: data[id].usd,
         jpy: data[id].jpy,
         change24h: data[id].jpy_24h_change ?? data[id].usd_24h_change ?? null,
+        change24hUsd: data[id].usd_24h_change ?? null,
+        change24hJpy: data[id].jpy_24h_change ?? null,
       };
     }
     const first = Object.values(prices)[0];
@@ -798,8 +807,16 @@ function calcDividend(pd, yld) {
 // ═══════════════════════════════════════════
 //  FORMAT
 // ═══════════════════════════════════════════
-function fJpy(n)    { return n == null ? '---' : '¥' + Math.round(n).toLocaleString('ja-JP'); }
-function fUsdBig(n) { return n == null ? '---' : '$' + Math.round(n).toLocaleString('ja-JP'); }
+function fJpy(n) {
+  if (n == null) return '---';
+  return (n < 0 ? '-' : '') + '¥' + Math.round(Math.abs(n)).toLocaleString('ja-JP');
+}
+function fUsdBig(n) {
+  if (n == null) return '---';
+  const amount = Math.abs(n);
+  const digits = amount >= 100 ? 0 : amount >= 1 ? 2 : 4;
+  return (n < 0 ? '-' : '') + '$' + amount.toLocaleString('ja-JP', {maximumFractionDigits:digits});
+}
 function fUsd(n) {
   if (n == null) return '---';
   if (n >= 100)  return '$' + n.toLocaleString('ja-JP', {maximumFractionDigits:0});
@@ -822,6 +839,26 @@ function fJpyPrice(n) {
   if (n == null) return '---';
   return '¥' + n.toLocaleString('ja-JP', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function fMoney(jpy, usd) { return displayCurrency === 'USD' ? fUsdBig(usd) : fJpy(jpy); }
+function fPrice(jpy, usd) { return displayCurrency === 'USD' ? fUsd(usd) : fJpyPrice(jpy); }
+function fCurrentMoney(amount) { return displayCurrency === 'USD' ? fUsdBig(amount) : fJpy(amount); }
+function currencyValue(jpy, usd) { return displayCurrency === 'USD' ? usd : jpy; }
+function currencyChange(price) {
+  if (!price) return null;
+  return displayCurrency === 'USD'
+    ? (price.change24hUsd ?? price.change24h)
+    : (price.change24hJpy ?? price.change24h);
+}
+window.setCurrency = function(currency) {
+  if (currency !== 'JPY' && currency !== 'USD') return;
+  displayCurrency = currency;
+  localStorage.setItem('displayCurrency', currency);
+  render();
+};
+function updateCurrencyButtons() {
+  document.getElementById('currency-jpy').setAttribute('aria-pressed', String(displayCurrency === 'JPY'));
+  document.getElementById('currency-usd').setAttribute('aria-pressed', String(displayCurrency === 'USD'));
+}
 function symbolLabel(sym, hid = null) {
   const s = sym.toUpperCase();
   const edit = hid === null ? '' : ` onclick="startEdit(this,${hid},'symbol','text')" title="クリックで編集"`;
@@ -843,13 +880,16 @@ function updateHoldingsDetail(symTotals, grand) {
 
   // 本日の損益（24h変動ベース）
   let totalPnl = 0, totalPrevVal = 0;
-  const syms = Object.keys(symTotals).filter(s => symTotals[s].valJpy > 0);
+  const valueKey = displayCurrency === 'USD' ? 'valUsd' : 'valJpy';
+  const syms = Object.keys(symTotals).filter(s => symTotals[s][valueKey] > 0);
   for (const s of syms) {
     const p = prices[s];
-    if (p && p.change24h != null) {
-      const r = p.change24h / 100;
-      const prev = symTotals[s].valJpy / (1 + r);
-      totalPnl     += symTotals[s].valJpy - prev;
+    const change = currencyChange(p);
+    if (change != null) {
+      const r = change / 100;
+      const value = symTotals[s][valueKey];
+      const prev = value / (1 + r);
+      totalPnl     += value - prev;
       totalPrevVal += prev;
     }
   }
@@ -860,7 +900,7 @@ function updateHoldingsDetail(symTotals, grand) {
     const pnlPct = totalPnl / totalPrevVal * 100;
     const sign   = totalPnl >= 0 ? '+' : '';
     const cls    = totalPnl >= 0 ? 'pnl-pos' : 'pnl-neg';
-    pnlEl.innerHTML = `<span class="${cls}">本日 ${sign}${fJpy(totalPnl)} (${sign}${pnlPct.toFixed(2)}%)</span>`;
+    pnlEl.innerHTML = `<span class="${cls}">本日 ${sign}${fCurrentMoney(totalPnl)} (${sign}${pnlPct.toFixed(2)}%)</span>`;
   } else {
     pnlEl.textContent = '';
   }
@@ -868,34 +908,35 @@ function updateHoldingsDetail(symTotals, grand) {
   // 銘柄リスト（評価額降順）
   const detail = document.getElementById('holdings-detail');
   detail.innerHTML = syms
-    .sort((a, b) => symTotals[b].valJpy - symTotals[a].valJpy)
+    .sort((a, b) => symTotals[b][valueKey] - symTotals[a][valueKey])
     .map(sym => {
       const p  = prices[sym];
       const st = symTotals[sym];
       const qty = symQty[sym] || 0;
-      const chg = p && p.change24h != null ? p.change24h : null;
+      const chg = currencyChange(p);
       const chgCls  = chg == null ? '' : chg >= 0 ? 'pnl-pos' : 'pnl-neg';
       const chgText = chg == null ? '' : (chg >= 0 ? '▲' : '▼') + Math.abs(chg).toFixed(2) + '%';
 
       // 当該銘柄の本日損益
       let rowPnl = '';
-      if (p && p.change24h != null) {
-        const r    = p.change24h / 100;
-        const pnl  = st.valJpy - st.valJpy / (1 + r);
+      if (chg != null) {
+        const r    = chg / 100;
+        const value = st[valueKey];
+        const pnl  = value - value / (1 + r);
         const sign = pnl >= 0 ? '+' : '';
         const cls  = pnl >= 0 ? 'pnl-pos' : 'pnl-neg';
-        rowPnl = `<span class="${cls}">${sign}${fJpy(pnl)}</span>`;
+        rowPnl = `<span class="${cls}">${sign}${fCurrentMoney(pnl)}</span>`;
       }
 
       return `<div class="holding-row">
         <span class="symbol-with-logo h-symbol">${coinLogo(sym)}${symbolLabel(sym)}</span>
         <div class="h-price-cell">
-          <div class="h-price-line"><span class="h-price">${p ? fJpyPrice(p.jpy) : '---'}</span><span class="h-price-usd">${p ? fUsd(p.usd) : ''}</span></div>
+          <div class="h-price">${p ? fPrice(p.jpy, p.usd) : '---'}</div>
           <span class="h-change ${chgCls}">${chgText}</span>
         </div>
         <span class="h-qty">${fQty(qty)} ${sym}</span>
         <div class="h-value-cell">
-          <div class="h-val">${fJpy(st.valJpy)}</div>
+          <div class="h-val">${fMoney(st.valJpy, st.valUsd)}</div>
           <div class="h-pnl">${rowPnl}</div>
         </div>
       </div>`;
@@ -906,59 +947,65 @@ function updateHoldingsDetail(symTotals, grand) {
 //  ANNUAL DETAIL CARD
 // ═══════════════════════════════════════════
 function updateAnnualDetail(symTotals, grand) {
-  const syms = Object.keys(symTotals).filter(s => symTotals[s].divJpy > 0);
+  const dividendKey = displayCurrency === 'USD' ? 'divUsd' : 'divJpy';
+  const syms = Object.keys(symTotals).filter(s => symTotals[s][dividendKey] > 0);
 
   // 24h P&L of annual dividends (price-driven)
   let totalPnl = 0, totalPrev = 0;
   for (const s of syms) {
     const p = prices[s];
-    if (p && p.change24h != null) {
-      const r    = p.change24h / 100;
-      const prev = symTotals[s].divJpy / (1 + r);
-      totalPnl  += symTotals[s].divJpy - prev;
+    const change = currencyChange(p);
+    if (change != null) {
+      const r    = change / 100;
+      const value = symTotals[s][dividendKey];
+      const prev = value / (1 + r);
+      totalPnl  += value - prev;
       totalPrev += prev;
     }
   }
 
   // カードヘッダー更新
-  document.getElementById('c-annual').textContent    = fJpy(grand.divJpy);
-  document.getElementById('c-annual-usd').textContent = usdJpy ? fUsdBig(grand.divJpy / usdJpy) : '$ ---';
+  document.getElementById('c-annual').textContent = fMoney(grand.divJpy, grand.divUsd);
 
   const pnlEl = document.getElementById('c-annual-pnl');
   if (totalPrev > 0) {
     const pct  = totalPnl / totalPrev * 100;
     const sign = totalPnl >= 0 ? '+' : '';
     const cls  = totalPnl >= 0 ? 'pnl-pos' : 'pnl-neg';
-    pnlEl.innerHTML = `<span class="${cls}">本日 ${sign}${fJpy(totalPnl)} (${sign}${pct.toFixed(2)}%)</span>`;
+    pnlEl.innerHTML = `<span class="${cls}">本日 ${sign}${fCurrentMoney(totalPnl)} (${sign}${pct.toFixed(2)}%)</span>`;
   } else {
     pnlEl.textContent = '';
   }
 
   // 月間合計（小さく・前日比の下）
   const monthEl = document.getElementById('c-annual-monthly');
-  monthEl.innerHTML = `<span style="color:var(--text-muted);font-size:11px;">月間 ${fJpy(grand.mDivJpy)}</span>`;
+  monthEl.innerHTML = `<span style="color:var(--text-muted);font-size:11px;">月間 ${fMoney(grand.mDivJpy, grand.divUsd / 12)}</span>`;
 
   // 加重平均年利
-  const avgY = grand.valJpy > 0 ? grand.divJpy / grand.valJpy * 100 : null;
+  const totalValue = currencyValue(grand.valJpy, grand.valUsd);
+  const totalDividend = currencyValue(grand.divJpy, grand.divUsd);
+  const avgY = totalValue > 0 ? totalDividend / totalValue * 100 : null;
   document.getElementById('c-annual-yield').textContent = avgY != null ? `加重平均年利 ${fYield(avgY)}` : '';
 
   // 銘柄別一覧
   const detail = document.getElementById('annual-detail');
   detail.innerHTML = syms
-    .sort((a, b) => symTotals[b].divJpy - symTotals[a].divJpy)
+    .sort((a, b) => symTotals[b][dividendKey] - symTotals[a][dividendKey])
     .map(sym => {
       const p   = prices[sym];
       const st  = symTotals[sym];
       const chg = p && p.change24h != null ? p.change24h : null;
       const chgCls  = chg == null ? '' : chg >= 0 ? 'pnl-pos' : 'pnl-neg';
       const chgText = chg == null ? '' : (chg >= 0 ? '▲' : '▼') + Math.abs(chg).toFixed(2) + '%';
-      const monthly  = fJpy(st.divJpy / 12);
-      const symYield = st.valJpy > 0 ? fYield(st.divJpy / st.valJpy * 100) : '---';
+      const monthly  = fMoney(st.divJpy / 12, st.divUsd / 12);
+      const val = currencyValue(st.valJpy, st.valUsd);
+      const div = currencyValue(st.divJpy, st.divUsd);
+      const symYield = val > 0 ? fYield(div / val * 100) : '---';
 
       return `<div class="holding-row holding-row-annual">
         <span class="symbol-with-logo">${coinLogo(sym)}${symbolLabel(sym)}</span>
         <div style="text-align:right">
-          <div class="h-val">${fJpy(st.divJpy)}</div>
+          <div class="h-val">${fMoney(st.divJpy, st.divUsd)}</div>
           <div class="h-pnl" style="color:var(--text-muted);">${monthly}/月</div>
         </div>
         <span style="font-size:12px;font-weight:600;color:var(--text);text-align:right;padding-left:8px;">${symYield}</span>
@@ -1098,6 +1145,7 @@ function attachDrag(tr, hid) {
 //  RENDER
 // ═══════════════════════════════════════════
 function render() {
+  updateCurrencyButtons();
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = '';
 
@@ -1119,12 +1167,13 @@ function render() {
   for (const row of allRows) {
     const { h, pd, formulaResult, hasFormula, effYield, c } = row;
     const sym = h.symbol.toUpperCase();
-    if (!symTotals[sym]) symTotals[sym] = { valJpy:0, divJpy:0, mDivJpy:0 };
+    if (!symTotals[sym]) symTotals[sym] = { valJpy:0, valUsd:0, divJpy:0, divUsd:0 };
 
     if (pd) {
       symTotals[sym].valJpy  += pd.valJpy;
+      symTotals[sym].valUsd  += pd.valUsd;
       symTotals[sym].divJpy  += c.divJpy;
-      symTotals[sym].mDivJpy += c.mDivJpy;
+      symTotals[sym].divUsd  += c.divUsd;
       grand.valUsd  += pd.valUsd;  grand.valJpy  += pd.valJpy;
       grand.divUsd  += c.divUsd;   grand.divJpy  += c.divJpy;
       grand.mDivJpy += c.mDivJpy;  grandOk = true;
@@ -1149,10 +1198,10 @@ function render() {
     const tr = document.createElement('tr');
     tr.className = 'data-row';
     const priceCell = pd
-      ? `<div class="price-stack"><span class="ps-jpy">${fJpyPrice(pd.priceJpy)}</span><span class="val-usd ps-usd">${fUsd(pd.priceUsd)}</span></div>`
+      ? `<span class="price-value">${fPrice(pd.priceJpy, pd.priceUsd)}</span>`
       : '<span class="loading-indicator">取得中…</span>';
     const valCell = pd
-      ? `<div class="price-stack"><span class="ps-jpy">${fJpy(pd.valJpy)}</span><span class="val-usd ps-usd">${fUsdBig(pd.valUsd)}</span></div>`
+      ? `<span class="price-value">${fMoney(pd.valJpy, pd.valUsd)}</span>`
       : '---';
     tr.innerHTML = `
       <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span><span class="symbol-with-logo">${coinLogo(h.symbol)}${symbolLabel(h.symbol, h.id)}</span></td>
@@ -1161,8 +1210,8 @@ function render() {
       <td data-label="現在価格">${priceCell}</td>
       <td class="priv" data-label="評価額">${valCell}</td>
       <td data-label="年利">${yieldCell}</td>
-      <td class="priv" data-label="年間配当">${pd ? fJpy(c.divJpy) : '---'}</td>
-      <td class="priv" data-label="月間配当">${pd ? fJpy(c.mDivJpy) : '---'}</td>
+      <td class="priv" data-label="年間配当">${pd ? fMoney(c.divJpy, c.divUsd) : '---'}</td>
+      <td class="priv" data-label="月間配当">${pd ? fMoney(c.mDivJpy, c.divUsd / 12) : '---'}</td>
       <td class="left" data-label="計算式">${formulaCell}</td>
       <td class="left" data-label="メモ">${memoCell}</td>
       <td class="center mob-delete" data-label=""><button class="btn btn-danger" onclick="deleteRow(${h.id})">✕</button></td>
@@ -1173,10 +1222,14 @@ function render() {
 
   // ④ サマリーカード更新
   if (grandOk) {
-    document.getElementById('c-val').textContent     = fJpy(grand.valJpy);
-    document.getElementById('c-val-usd').textContent = fUsdBig(grand.valUsd);
+    document.getElementById('c-val').textContent = fMoney(grand.valJpy, grand.valUsd);
     updateHoldingsDetail(symTotals, grand);
     updateAnnualDetail(symTotals, grand);
+  } else {
+    document.getElementById('c-val').textContent = displayCurrency === 'USD' ? '$ ---' : '¥ ---';
+    document.getElementById('c-annual').textContent = displayCurrency === 'USD' ? '$ ---' : '¥ ---';
+    ['c-val-pnl', 'c-annual-pnl', 'c-annual-monthly', 'c-annual-yield', 'holdings-detail', 'annual-detail']
+      .forEach(id => { document.getElementById(id).textContent = ''; });
   }
 }
 
