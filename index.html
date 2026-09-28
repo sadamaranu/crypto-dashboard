@@ -162,6 +162,8 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
 
 /* misc */
 .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+.symbol-with-logo { display: inline-flex; align-items: center; gap: 6px; }
+.coin-logo { width: 20px; height: 20px; flex: none; object-fit: contain; border-radius: 50%; }
 .loading-indicator { color: #a0aec0; font-style: italic; font-size: 11px; }
 .val-usd { font-size: 10px; color: var(--text-muted); font-weight: 400; }
 /* price-stack: デスクトップは縦並び（¥上 $下） */
@@ -521,7 +523,7 @@ const DEFAULT_HOLDINGS = [];
 const DEFAULT_IDS = {
   'BTC':'bitcoin','ETH':'ethereum','XRP':'ripple','SOL':'solana',
   'ADA':'cardano','BNB':'binancecoin','DOGE':'dogecoin','DOT':'polkadot',
-  'MATIC':'matic-network','TRUMP':'official-trump','FLR':'flare',
+  'MATIC':'matic-network','TRUMP':'official-trump','FLR':'flare-networks',
   'NEXO':'nexo','LINK':'chainlink','UNI':'uniswap','AVAX':'avalanche-2',
   'LTC':'litecoin','TRX':'tron','ATOM':'cosmos','XLM':'stellar',
   'SHIB':'shiba-inu','PEPE':'pepe','OP':'optimism','ARB':'arbitrum',
@@ -557,6 +559,9 @@ let holdings = loadLS('holdings2') || DEFAULT_HOLDINGS.map(h=>({...h}));
 let coinIds   = loadLS('coinIds')   || {...DEFAULT_IDS};
 // DEFAULT_IDSに新規追加されたシンボルを既存coinIdsに補完
 Object.entries(DEFAULT_IDS).forEach(([sym, id]) => { if (!coinIds[sym]) coinIds[sym] = id; });
+if (coinIds.FLR === 'flare') coinIds.FLR = 'flare-networks';
+let coinLogos  = loadLS('coinLogos') || {};
+let coinLogosUpdatedAt = Number(localStorage.getItem('coinLogosUpdatedAt')) || 0;
 let prices    = {};
 let usdJpy    = null;
 let nextId    = Math.max(0, ...holdings.map(h=>h.id)) + 1;
@@ -605,6 +610,8 @@ async function fetchPrices() {
     btn.disabled = false; ic.textContent = '↺'; return;
   }
 
+  fetchCoinLogos(ids);
+
   try {
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd,jpy&include_24hr_change=true`;
     const r = await fetch(url);
@@ -630,6 +637,29 @@ async function fetchPrices() {
   }
   btn.disabled = false; ic.textContent = '↺';
   render();
+}
+
+async function fetchCoinLogos(ids) {
+  const refreshAll = Date.now() - coinLogosUpdatedAt > 7 * 24 * 60 * 60 * 1000;
+  const needed = refreshAll ? ids : ids.filter(id => !(id in coinLogos));
+  if (!needed.length) return;
+  try {
+    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(needed.join(','))}&per_page=250&page=1`;
+    const response = await fetch(url);
+    if (!response.ok) return;
+    const data = await response.json();
+    const images = new Map(data.map(coin => [coin.id, coin.image]));
+    for (const id of needed) {
+      const image = images.get(id) || '';
+      coinLogos[id] = /^https:\/\/coin-images\.coingecko\.com\//.test(image) ? image : '';
+    }
+    coinLogosUpdatedAt = Date.now();
+    try {
+      localStorage.setItem('coinLogos', JSON.stringify(coinLogos));
+      localStorage.setItem('coinLogosUpdatedAt', String(coinLogosUpdatedAt));
+    } catch(e) {}
+    render();
+  } catch(e) {}
 }
 
 // ═══════════════════════════════════════════
@@ -735,6 +765,11 @@ function badge(sym, hid = null) {
   const c = BADGE_COLORS[s] || { bg:'#f1f5f9', color:'#475569' };
   const edit = hid === null ? '' : ` onclick="startEdit(this,${hid},'symbol','text')" title="クリックで編集"`;
   return `<span class="badge${hid === null ? '' : ' editable'}" style="background:${c.bg};color:${c.color}"${edit}>${s}</span>`;
+}
+function coinLogo(sym) {
+  const url = coinLogos[coinIds[sym.toUpperCase()]];
+  if (!url || !/^https:\/\/coin-images\.coingecko\.com\//.test(url)) return '';
+  return `<img class="coin-logo" src="${escapeHtml(url).replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`;
 }
 
 // ═══════════════════════════════════════════
@@ -1101,7 +1136,7 @@ function render() {
       ? `<div class="price-stack"><span class="ps-jpy">${fJpy(pd.valJpy)}</span><span class="val-usd ps-usd">${fUsdBig(pd.valUsd)}</span></div>`
       : '---';
     tr.innerHTML = `
-      <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span>${badge(h.symbol, h.id)}</td>
+      <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span><span class="symbol-with-logo">${coinLogo(h.symbol)}${badge(h.symbol, h.id)}</span></td>
       <td class="left" data-label="取引所">${editable(h.exchange||'', h.id, 'exchange')}</td>
       <td class="priv" data-label="枚数">${editable(fQty(h.quantity), h.id, 'quantity', 'number')}</td>
       <td data-label="現在価格">${priceCell}</td>
@@ -1221,6 +1256,7 @@ async function gistLoad() {
       setTimeout(gistSave, 500);
     }
     if (parsed.coinIds && Object.keys(parsed.coinIds).length > 0) coinIds = parsed.coinIds;
+    if (coinIds.FLR === 'flare') coinIds.FLR = 'flare-networks';
     try { localStorage.setItem('holdings2', JSON.stringify(holdings)); localStorage.setItem('coinIds', JSON.stringify(coinIds)); } catch(e){}
     return true;
   } catch(e) { return false; }
