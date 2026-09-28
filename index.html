@@ -68,13 +68,13 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .card-value { font-size: clamp(26px, 2.6vw, 38px); letter-spacing: -.045em; font-weight: 650; color: var(--text); line-height: 1.2; }
 .card-sub   { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
 .card-chart { display: flex; align-items: center; gap: 24px; padding: 18px 0 20px; min-height: 204px; min-width: 0; }
-.chart-ring { width: 166px; height: 166px; flex: none; }
-.chart-ring svg { display: block; width: 100%; height: 100%; }
-.chart-legend { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; flex: 1; min-width: 0; }
-.chart-legend-item { display: flex; align-items: center; gap: 7px; min-width: 0; font-size: 12px; }
-.chart-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
-.chart-legend-name { color: var(--text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.chart-legend-pct { color: var(--text-muted); margin-left: auto; white-space: nowrap; }
+
+
+
+
+
+
+
 
 /* ── 評価額詳細 ── */
 .pnl-row { font-size: 11px; margin-top: 3px; }
@@ -233,8 +233,8 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
   .card-value { font-size: 17px; }
   .card-body { gap: 6px; }
   .card-chart { gap: 10px; }
-  .chart-ring { width: 132px; height: 132px; }
-  .chart-legend { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+
+
 
   /* Holdings detail rows in card */
   .holding-row {
@@ -340,7 +340,7 @@ header { border-bottom: 1px solid var(--border); }
 .card { box-shadow: 0 2px 4px #22362903; }
 .card-annual { background: #fcfdfb; }
 .card-chart { border-top: 1px solid #edf0e9; }
-.chart-legend-pct { color: #52655a; }
+
 .holdings-list { margin-top: 0; padding-top: 4px; }
 .table-heading h2 { font-size: 18px; font-weight: 650; letter-spacing: -.025em; }
 .table-heading p { margin-top: 6px; line-height: 1.6; }
@@ -350,7 +350,7 @@ header { border-bottom: 1px solid var(--border); }
 @media (min-width: 861px) and (max-width: 1200px) {
   .card { padding: 22px 20px 16px; }
   .card-chart { gap: 16px; }
-  .chart-legend { grid-template-columns: 1fr; gap: 6px; }
+
   .holding-row { grid-template-columns: 82px 1fr 48px; }
   .holding-row:not(.holding-row-annual) .h-qty { grid-column: 2; }
   .holding-row-annual { grid-template-columns: 82px 1fr 48px; }
@@ -374,9 +374,9 @@ header { border-bottom: 1px solid var(--border); }
   .card-value { font-size: 32px; }
   .card-body { min-height: 130px; }
   .card-chart { min-height: 188px; gap: 18px; padding: 16px 0; }
-  .chart-ring { width: 142px; height: 142px; }
-  .chart-legend { gap: 7px; }
-  .chart-legend-item { font-size: 11px; }
+
+
+
   .holding-row { padding: 10px 0; gap: 5px 8px; grid-template-columns: 82px 1fr 48px; }
   .holding-row:not(.holding-row-annual) .h-qty { grid-column: 2; }
   .holding-row-annual { grid-template-columns: 82px 1fr 48px; }
@@ -389,6 +389,22 @@ header { border-bottom: 1px solid var(--border); }
   tr.data-row td.mob-symbol { padding-bottom: 14px; margin-bottom: 6px; }
   .form-row { grid-template-columns: 80px minmax(0, 1fr); }
   .form-row input, .form-row textarea { min-width: 0; width: 100%; }
+}
+
+/* Horizontal composition charts: each row contains its label and share. */
+.card-chart { display: block; padding: 22px 0; min-height: max(204px, calc(var(--chart-rows, 1) * 28px + 37px)); }
+.bar-chart { list-style: none; display: grid; gap: 8px; width: 100%; }
+.bar-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 52px; gap: 12px; align-items: center; min-height: 20px; }
+.bar-name { color: var(--text); font-size: 13px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 96px; }
+.bar-track { display: block; height: 10px; background: #edf1ea; border-radius: 3px; overflow: hidden; }
+.bar-fill { display: block; height: 100%; border-radius: inherit; }
+.bar-pct { text-align: right; font-size: 12px; font-weight: 600; color: #52655a; white-space: nowrap; }
+.chart-empty { display: grid; place-items: center; min-height: 160px; color: var(--text-muted); font-size: 12px; }
+@media (max-width: 640px) {
+  .card-chart { padding: 20px 0; }
+  .bar-row { grid-template-columns: 60px minmax(0, 1fr) 48px; gap: 10px; }
+  .bar-name { font-size: 12px; }
+  .bar-pct { font-size: 11px; }
 }
 </style>
 </head>
@@ -834,23 +850,12 @@ function formatShare(pct) {
 
 function makeCompositionChart(segments, title) {
   const total = segments.reduce((sum, seg) => sum + seg.value, 0);
-  const radius = 53;
-  const circumference = 2 * Math.PI * radius;
-  let offset = 0;
-  const circles = segments.map(seg => {
-    const length = seg.value / total * circumference;
-    const gap = segments.length > 1 ? Math.min(2, length * 0.2) : 0;
-    const circle = `<circle cx="75" cy="75" r="${radius}" fill="none" stroke="${seg.color}" stroke-width="21" stroke-dasharray="${(length-gap).toFixed(3)} ${circumference.toFixed(3)}" stroke-dashoffset="${(-offset).toFixed(3)}" transform="rotate(-90 75 75)"><title>${escapeHtml(seg.label)} ${escapeHtml(formatShare(seg.value / total * 100))}</title></circle>`;
-    offset += length;
-    return circle;
+  if (!total) return '<div class="chart-empty">データなし</div>';
+  const rows = segments.map(seg => {
+    const pct = seg.value / total * 100;
+    return `<li class="bar-row"><span class="bar-name" title="${escapeHtml(seg.label)}">${escapeHtml(seg.label)}</span><span class="bar-track" aria-hidden="true"><span class="bar-fill" style="width:${pct.toFixed(5)}%;background:${seg.color}"></span></span><span class="bar-pct">${escapeHtml(formatShare(pct))}</span></li>`;
   }).join('');
-  const top = segments[0];
-  const center = top
-    ? `<text x="75" y="70" text-anchor="middle" font-size="14" font-weight="700" fill="#1a202c">${escapeHtml(top.label)}</text><text x="75" y="89" text-anchor="middle" font-size="13" font-weight="700" fill="#475569">${escapeHtml(formatShare(top.value / total * 100))}</text>`
-    : '<text x="75" y="79" text-anchor="middle" font-size="11" fill="#94a3b8">データなし</text>';
-  const svg = `<div class="chart-ring"><svg viewBox="0 0 150 150" role="img" aria-label="${escapeHtml(title)}の構成比"><circle cx="75" cy="75" r="${radius}" fill="none" stroke="#e2e8f0" stroke-width="21"/>${circles}${center}</svg></div>`;
-  const legend = segments.map(seg => `<div class="chart-legend-item"><span class="chart-legend-dot" style="background:${seg.color}"></span><span class="chart-legend-name" title="${escapeHtml(seg.label)}">${escapeHtml(seg.label)}</span><span class="chart-legend-pct">${escapeHtml(formatShare(seg.value / total * 100))}</span></div>`).join('');
-  return svg + `<div class="chart-legend">${legend}</div>`;
+  return `<ul class="bar-chart" aria-label="${escapeHtml(title)}の構成比">${rows}</ul>`;
 }
 
 function updateCharts(symTotals) {
@@ -863,7 +868,9 @@ function updateCharts(symTotals) {
     const segments = syms.map(sym => ({ label:sym, value:symTotals[sym][key] || 0, color:colors[sym] }))
       .filter(seg => seg.value > 0)
       .sort((a, b) => b.value - a.value);
-    document.getElementById(chartId).innerHTML = makeCompositionChart(segments, title);
+    const chart = document.getElementById(chartId);
+    chart.style.setProperty('--chart-rows', Math.max(1, syms.length));
+    chart.innerHTML = makeCompositionChart(segments, title);
   });
 }
 
