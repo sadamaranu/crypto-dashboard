@@ -63,17 +63,10 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .card.card-annual::before { background: linear-gradient(90deg, #10b981, #059669); }
 .card.card-monthly::before{ background: linear-gradient(90deg, #f59e0b, #d97706); }
 .card-label { font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 12px; }
-.card-body  { display: flex; align-items: center; gap: 10px; justify-content: space-between; min-height: 130px; }
+.card-body  { display: flex; align-items: center; gap: 10px; justify-content: space-between; min-height: 112px; }
 .card-nums  { flex: 1; min-width: 0; }
 .card-value { font-size: clamp(26px, 2.6vw, 38px); letter-spacing: -.045em; font-weight: 650; color: var(--text); line-height: 1.2; }
 .card-sub   { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
-.card-chart { display: flex; align-items: center; gap: 24px; padding: 18px 0 20px; min-height: 204px; min-width: 0; }
-
-
-
-
-
-
 
 
 /* ── 評価額詳細 ── */
@@ -87,7 +80,6 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 }
 .holding-row {
   display: grid;
-  grid-template-columns: minmax(82px, 1fr) auto 48px auto auto;
   align-items: center;
   gap: 4px 8px;
   padding: 12px 0;
@@ -232,13 +224,11 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
   .card { padding: 12px 12px 10px; }
   .card-value { font-size: 17px; }
   .card-body { gap: 6px; }
-  .card-chart { gap: 10px; }
 
 
 
   /* Holdings detail rows in card */
   .holding-row {
-    grid-template-columns: 74px 1fr 44px;
     font-size: 11px;
     gap: 3px 5px;
     padding: 5px 0;
@@ -339,7 +329,6 @@ header { border-bottom: 1px solid var(--border); }
 .summary, .table-wrap { max-width: 1680px; margin-inline: auto; }
 .card { box-shadow: 0 2px 4px #22362903; }
 .card-annual { background: #fcfdfb; }
-.card-chart { border-top: 1px solid #edf0e9; }
 
 .holdings-list { margin-top: 0; padding-top: 4px; }
 .table-heading h2 { font-size: 18px; font-weight: 650; letter-spacing: -.025em; }
@@ -349,10 +338,6 @@ header { border-bottom: 1px solid var(--border); }
 .overlay { background: #142b244d; backdrop-filter: blur(4px); }
 @media (min-width: 861px) and (max-width: 1200px) {
   .card { padding: 22px 20px 16px; }
-  .card-chart { gap: 16px; }
-
-  .holding-row { grid-template-columns: 82px 1fr 48px; }
-  .holding-row:not(.holding-row-annual) .h-qty { grid-column: 2; }
   .holding-row-annual { grid-template-columns: 82px 1fr 48px; }
 }
 @media (max-width: 860px) {
@@ -372,13 +357,11 @@ header { border-bottom: 1px solid var(--border); }
   .summary { padding: 18px 14px 0; gap: 16px; }
   .card { padding: 22px 18px 14px; border-radius: 16px; }
   .card-value { font-size: 32px; }
-  .card-body { min-height: 130px; }
-  .card-chart { min-height: 188px; gap: 18px; padding: 16px 0; }
+  .card-body { min-height: 112px; }
 
 
 
   .holding-row { padding: 10px 0; gap: 5px 8px; grid-template-columns: 82px 1fr 48px; }
-  .holding-row:not(.holding-row-annual) .h-qty { grid-column: 2; }
   .holding-row-annual { grid-template-columns: 82px 1fr 48px; }
   .table-wrap { padding: 26px 14px 36px; }
   .toolbar { gap: 14px; }
@@ -391,20 +374,39 @@ header { border-bottom: 1px solid var(--border); }
   .form-row input, .form-row textarea { min-width: 0; width: 100%; }
 }
 
-/* Horizontal composition charts: each row contains its label and share. */
-.card-chart { display: block; padding: 22px 0; min-height: max(204px, calc(var(--chart-rows, 1) * 28px + 37px)); }
-.bar-chart { list-style: none; display: grid; gap: 8px; width: 100%; }
-.bar-row { display: grid; grid-template-columns: 64px minmax(0, 1fr) 52px; gap: 12px; align-items: center; min-height: 20px; }
-.bar-name { color: var(--text); font-size: 13px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 96px; }
-.bar-track { display: block; height: 10px; background: #edf1ea; border-radius: 3px; overflow: hidden; }
-.bar-fill { display: block; height: 100%; border-radius: inherit; }
-.bar-pct { text-align: right; font-size: 12px; font-weight: 600; color: #52655a; white-space: nowrap; }
-.chart-empty { display: grid; place-items: center; min-height: 160px; color: var(--text-muted); font-size: 12px; }
+/* Fixed positions for the valuation detail at every card width. */
+.holding-row:not(.holding-row-annual) .h-price,
+.holding-row:not(.holding-row-annual) .h-change,
+.holding-row:not(.holding-row-annual) .h-qty,
+.holding-row:not(.holding-row-annual) .h-val,
+.holding-row:not(.holding-row-annual) .h-pnl { text-align: left; }
+.holdings-list { margin-top: 12px; padding-top: 8px; }
+.holding-row:not(.holding-row-annual) .h-symbol { grid-area: symbol; min-width: 0; }
+.holding-row:not(.holding-row-annual) .h-price-cell { grid-area: price; min-width: 0; text-align: left; }
+.holding-row:not(.holding-row-annual) .h-change { grid-area: change; }
+.holding-row:not(.holding-row-annual) .h-qty { grid-area: qty; white-space: nowrap; }
+.holding-row:not(.holding-row-annual) .h-value-cell { grid-area: value; min-width: 0; text-align: left; }
+.holding-row:not(.holding-row-annual) {
+  grid-template-areas: "symbol price change qty value";
+  grid-template-columns: minmax(70px, 1fr) minmax(106px, 1.35fr) 58px minmax(76px, 1fr) minmax(110px, 1.25fr);
+}
+@media (min-width: 641px) and (max-width: 1200px) {
+  .holding-row:not(.holding-row-annual) {
+    grid-template-areas: "symbol price value" "change qty value";
+    grid-template-columns: 82px minmax(0, 1fr) minmax(110px, 1fr);
+  }
+  .holding-row:not(.holding-row-annual) .h-change { text-align: left; }
+  .holding-row:not(.holding-row-annual) .h-qty { text-align: left; }
+}
 @media (max-width: 640px) {
-  .card-chart { padding: 20px 0; }
-  .bar-row { grid-template-columns: 60px minmax(0, 1fr) 48px; gap: 10px; }
-  .bar-name { font-size: 12px; }
-  .bar-pct { font-size: 11px; }
+  .holding-row:not(.holding-row-annual) {
+    grid-template-areas: "symbol price value" "change qty value";
+    grid-template-columns: 82px minmax(0, 1fr) minmax(105px, 1fr);
+    gap: 3px 6px;
+  }
+  .holding-row:not(.holding-row-annual) .h-change { text-align: left; }
+  .holding-row:not(.holding-row-annual) .h-qty { text-align: left; }
+  .holding-row:not(.holding-row-annual) .h-price { font-size: 11px; }
 }
 </style>
 </head>
@@ -436,7 +438,6 @@ header { border-bottom: 1px solid var(--border); }
         <div class="pnl-row    priv" id="c-val-pnl"></div>
       </div>
     </div>
-    <div class="card-chart priv" id="chart-val"></div>
     <div class="holdings-list priv" id="holdings-detail"></div>
   </div>
 
@@ -452,7 +453,6 @@ header { border-bottom: 1px solid var(--border); }
         <div class="card-sub"        id="c-annual-yield"   style="margin-top:4px;"></div>
       </div>
     </div>
-    <div class="card-chart priv" id="chart-annual"></div>
     <div class="holdings-list priv" id="annual-detail"></div>
   </div>
 </div>
@@ -616,10 +616,6 @@ const DEFAULT_IDS = {
   'SUI':'sui','TON':'toncoin','APT':'aptos','INJ':'injective',
 };
 
-const CHART_PALETTE = [
-  '#2c6c55','#8da991','#d6b776','#627f9b','#b88877','#80aaa6',
-  '#aaa276','#958cae','#748b79','#cfa07d','#5b9b89','#b797ae',
-];
 
 // ═══════════════════════════════════════════
 //  STATE
@@ -840,40 +836,6 @@ function coinLogo(sym) {
   return `<img class="coin-logo" src="${escapeHtml(url).replace(/"/g,'&quot;')}" alt="" onerror="this.style.display='none'">`;
 }
 
-// ═══════════════════════════════════════════
-//  COMPOSITION CHART
-// ═══════════════════════════════════════════
-function formatShare(pct) {
-  if (pct > 0 && pct < 0.1) return '<0.1%';
-  return `${Number(pct.toFixed(1))}%`;
-}
-
-function makeCompositionChart(segments, title) {
-  const total = segments.reduce((sum, seg) => sum + seg.value, 0);
-  if (!total) return '<div class="chart-empty">データなし</div>';
-  const rows = segments.map(seg => {
-    const pct = seg.value / total * 100;
-    return `<li class="bar-row"><span class="bar-name" title="${escapeHtml(seg.label)}">${escapeHtml(seg.label)}</span><span class="bar-track" aria-hidden="true"><span class="bar-fill" style="width:${pct.toFixed(5)}%;background:${seg.color}"></span></span><span class="bar-pct">${escapeHtml(formatShare(pct))}</span></li>`;
-  }).join('');
-  return `<ul class="bar-chart" aria-label="${escapeHtml(title)}の構成比">${rows}</ul>`;
-}
-
-function updateCharts(symTotals) {
-  const syms = Object.keys(symTotals).sort();
-  const colors = Object.fromEntries(syms.map((sym, i) => [sym, CHART_PALETTE[i % CHART_PALETTE.length]]));
-  [
-    { chartId:'chart-val', key:'valJpy', title:'評価額' },
-    { chartId:'chart-annual', key:'divJpy', title:'年間配当' },
-  ].forEach(({ chartId, key, title }) => {
-    const segments = syms.map(sym => ({ label:sym, value:symTotals[sym][key] || 0, color:colors[sym] }))
-      .filter(seg => seg.value > 0)
-      .sort((a, b) => b.value - a.value);
-    const chart = document.getElementById(chartId);
-    chart.style.setProperty('--chart-rows', Math.max(1, syms.length));
-    chart.innerHTML = makeCompositionChart(segments, title);
-  });
-}
-
 function updateHoldingsDetail(symTotals, grand) {
   // 銘柄ごとの合計枚数
   const symQty = {};
@@ -929,14 +891,14 @@ function updateHoldingsDetail(symTotals, grand) {
       }
 
       return `<div class="holding-row">
-        <span class="symbol-with-logo">${coinLogo(sym)}${symbolLabel(sym)}</span>
-        <div style="text-align:right">
+        <span class="symbol-with-logo h-symbol">${coinLogo(sym)}${symbolLabel(sym)}</span>
+        <div class="h-price-cell">
           <div class="h-price">${p ? fJpyPrice(p.jpy) : '---'}</div>
           <div class="val-usd" style="font-size:10px;">${p ? fUsd(p.usd) : ''}</div>
         </div>
         <span class="h-change ${chgCls}">${chgText}</span>
         <span class="h-qty">${fQty(qty)} ${sym}</span>
-        <div style="text-align:right">
+        <div class="h-value-cell">
           <div class="h-val">${fJpy(st.valJpy)}</div>
           <div class="h-pnl">${rowPnl}</div>
         </div>
@@ -1214,7 +1176,6 @@ function render() {
   }
 
   // ④ サマリーカード更新
-  updateCharts(symTotals);
   if (grandOk) {
     document.getElementById('c-val').textContent     = fJpy(grand.valJpy);
     document.getElementById('c-val-usd').textContent = fUsdBig(grand.valUsd);
