@@ -71,6 +71,22 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .card-nums  { flex: 1; min-width: 0; }
 .card-value { font-size: clamp(26px, 2.6vw, 38px); letter-spacing: -.045em; font-weight: 650; color: var(--text); line-height: 1.2; }
 .card-sub   { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.annual-overview {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "amount yield" "pnl yield" "monthly yield";
+  align-content: start; align-items: start; gap: 4px 16px;
+}
+.annual-overview #c-annual { grid-area: amount; }
+.annual-overview #c-annual-pnl { grid-area: pnl; }
+.annual-overview #c-annual-monthly { grid-area: monthly; }
+.yield-feature { grid-area: yield; min-width: 132px; padding: 10px 14px; border-radius: 12px; background: #eef5ee; text-align: right; }
+.yield-caption { font-size: 11px; font-weight: 700; color: #567865; }
+.yield-value { margin-top: 4px; color: var(--accent); font-size: 28px; font-weight: 700; letter-spacing: -.04em; line-height: 1.15; white-space: nowrap; }
+@media (max-width: 640px) {
+  .card-annual .annual-overview { grid-template-columns: minmax(0, 1fr); grid-template-areas: "amount" "yield" "pnl" "monthly"; min-height: 0; row-gap: 8px; }
+  .yield-feature { justify-self: stretch; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 2px 0; text-align: left; }
+  .yield-value { margin-top: 0; }
+}
 
 
 /* ── 評価額詳細 ── */
@@ -448,13 +464,14 @@ header { border-bottom: 1px solid var(--border); }
   <!-- 右：年間配当合計（拡張版） -->
   <div class="card card-annual">
     <div class="card-label">年間配当合計</div>
-    <div class="card-body" style="align-items:flex-start;">
-      <div class="card-nums">
-        <div class="card-value priv" id="c-annual">¥ ---</div>
-        <div class="pnl-row    priv" id="c-annual-pnl"></div>
-        <div class="pnl-row    priv" id="c-annual-monthly" style="margin-top:2px;"></div>
-        <div class="card-sub"        id="c-annual-yield"   style="margin-top:4px;"></div>
+    <div class="card-body annual-overview">
+      <div class="card-value priv" id="c-annual">¥ ---</div>
+      <div class="yield-feature priv" title="年間配当合計 ÷ 評価額合計">
+        <div class="yield-caption">全体年利</div>
+        <div class="yield-value" id="c-annual-yield">---</div>
       </div>
+      <div class="pnl-row priv" id="c-annual-pnl"></div>
+      <div class="pnl-row priv" id="c-annual-monthly"></div>
     </div>
     <div class="holdings-list priv" id="annual-detail"></div>
   </div>
@@ -985,7 +1002,7 @@ function updateAnnualDetail(symTotals, grand) {
   const totalValue = currencyValue(grand.valJpy, grand.valUsd);
   const totalDividend = currencyValue(grand.divJpy, grand.divUsd);
   const avgY = totalValue > 0 ? totalDividend / totalValue * 100 : null;
-  document.getElementById('c-annual-yield').textContent = avgY != null ? `加重平均年利 ${fYield(avgY)}` : '';
+  document.getElementById('c-annual-yield').textContent = avgY != null ? fYield(avgY) : '---';
 
   // 銘柄別一覧
   const detail = document.getElementById('annual-detail');
@@ -1228,7 +1245,8 @@ function render() {
   } else {
     document.getElementById('c-val').textContent = displayCurrency === 'USD' ? '$ ---' : '¥ ---';
     document.getElementById('c-annual').textContent = displayCurrency === 'USD' ? '$ ---' : '¥ ---';
-    ['c-val-pnl', 'c-annual-pnl', 'c-annual-monthly', 'c-annual-yield', 'holdings-detail', 'annual-detail']
+    document.getElementById('c-annual-yield').textContent = '---';
+    ['c-val-pnl', 'c-annual-pnl', 'c-annual-monthly', 'holdings-detail', 'annual-detail']
       .forEach(id => { document.getElementById(id).textContent = ''; });
   }
 }
