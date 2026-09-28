@@ -63,7 +63,7 @@ header h1 { font-size: 17px; font-weight: 700; }
 .card.card-annual::before { background: linear-gradient(90deg, #10b981, #059669); }
 .card.card-monthly::before{ background: linear-gradient(90deg, #f59e0b, #d97706); }
 .card-label { font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .07em; margin-bottom: 8px; }
-.card-body  { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.card-body  { display: flex; align-items: center; gap: 10px; justify-content: space-between; min-height: 112px; }
 .card-nums  { flex: 1; min-width: 0; }
 .card-value { font-size: 20px; font-weight: 700; color: var(--text); line-height: 1.2; }
 .card-sub   { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
@@ -164,7 +164,7 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
 .yield-pending { color: #94a3b8; font-style: italic; display: inline-block; text-align: right; padding: 2px 5px; }
 
 /* misc */
-.symbol-label { display: inline-block; color: var(--text); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.symbol-label { display: inline-block; color: var(--text); font-size: 14px; font-weight: 700; white-space: nowrap; }
 .symbol-label.editable:hover { background: transparent; }
 .symbol-with-logo { display: inline-flex; align-items: center; gap: 6px; }
 .coin-logo { width: 20px; height: 20px; flex: none; object-fit: contain; border-radius: 50%; }
@@ -930,7 +930,7 @@ function updateAnnualDetail(symTotals, grand) {
       const symYield = st.valJpy > 0 ? fYield(st.divJpy / st.valJpy * 100) : '---';
 
       return `<div class="holding-row holding-row-annual">
-        ${symbolLabel(sym)}
+        <span class="symbol-with-logo">${coinLogo(sym)}${symbolLabel(sym)}</span>
         <div style="text-align:right">
           <div class="h-val">${fJpy(st.divJpy)}</div>
           <div class="h-pnl" style="color:var(--text-muted);">${monthly}/月</div>
