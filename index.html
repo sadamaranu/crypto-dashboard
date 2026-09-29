@@ -399,9 +399,13 @@ header { border-bottom: 1px solid var(--border); }
 .holdings-list { margin-top: 12px; padding-top: 8px; }
 .holding-row:not(.holding-row-annual) {
   grid-template-areas: "symbol price qty value";
-  grid-template-columns: max-content minmax(max-content, 1fr) max-content max-content;
+  grid-template-columns:
+    var(--holding-symbol-width, max-content)
+    minmax(var(--holding-price-width, max-content), 1fr)
+    var(--holding-qty-width, max-content)
+    var(--holding-value-width, max-content);
 }
-.holding-row:not(.holding-row-annual) .h-symbol { grid-area: symbol; min-width: 0; }
+.holding-row:not(.holding-row-annual) .h-symbol { grid-area: symbol; min-width: 0; justify-self: start; }
 .holding-row:not(.holding-row-annual) .h-price-cell { grid-area: price; min-width: 0; }
 .holding-row:not(.holding-row-annual) .h-qty { grid-area: qty; white-space: nowrap; }
 .holding-row:not(.holding-row-annual) .h-value-cell { grid-area: value; min-width: 0; }
@@ -413,7 +417,7 @@ header { border-bottom: 1px solid var(--border); }
 .h-price-cell .h-change { display: block; margin-top: 3px; line-height: 1.2; }
 .holding-row.is-compact:not(.holding-row-annual) {
   grid-template-areas: "symbol value" "price qty";
-  grid-template-columns: minmax(0, 1fr) minmax(105px, auto);
+  grid-template-columns: minmax(0, 1fr) var(--holding-compact-right-width, 105px);
   gap: 5px 10px;
 }
 @media (max-width: 640px) {
@@ -1012,16 +1016,25 @@ function updateHoldingsLayout() {
   const measure = el => {
     const range = document.createRange();
     range.selectNodeContents(el);
-    return range.getBoundingClientRect().width;
+    return Math.ceil(range.getBoundingClientRect().width);
   };
   const gap = window.matchMedia('(max-width: 640px)').matches ? 5 : 8;
-  const rows = [...document.querySelectorAll('#holdings-detail .holding-row')];
-  const compact = rows.some(row => {
+  const detail = document.getElementById('holdings-detail');
+  const rows = [...detail.querySelectorAll('.holding-row')];
+  if (!rows.length) return;
+  const widest = [0, 0, 0, 0];
+  rows.forEach(row => {
     const price = Math.max(measure(row.querySelector('.h-price')), measure(row.querySelector('.h-change')));
     const value = Math.max(measure(row.querySelector('.h-val')), measure(row.querySelector('.h-pnl')));
-    const needed = measure(row.querySelector('.h-symbol')) + price + measure(row.querySelector('.h-qty')) + value + gap * 3 + 6;
-    return needed > row.clientWidth;
+    const widths = [measure(row.querySelector('.h-symbol')), price, measure(row.querySelector('.h-qty')), value];
+    widths.forEach((width, index) => { widest[index] = Math.max(widest[index], width); });
   });
+  ['symbol', 'price', 'qty', 'value'].forEach((name, index) => {
+    detail.style.setProperty(`--holding-${name}-width`, `${widest[index]}px`);
+  });
+  detail.style.setProperty('--holding-compact-right-width', `${Math.max(105, widest[2], widest[3])}px`);
+  const needed = widest.reduce((sum, width) => sum + width, 0) + gap * 3 + 4;
+  const compact = needed > detail.clientWidth;
   rows.forEach(row => row.classList.toggle('is-compact', compact));
 }
 window.addEventListener('resize', updateHoldingsLayout);
