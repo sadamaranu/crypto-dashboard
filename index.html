@@ -60,10 +60,10 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .btn-sm { padding: 10px 14px; font-size: 12px; }
 
 /* ── SUMMARY CARDS ── */
-.summary { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding: 32px 32px 0; }
+.summary { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 24px; padding: 32px 32px 0; }
 .card {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: 18px; padding: 26px 28px 18px;
+  border-radius: 18px; padding: 22px 28px 14px;
   position: relative; overflow: hidden;
 }
 .card::before { display: none; }
@@ -71,7 +71,7 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .card.card-annual::before { background: linear-gradient(90deg, #10b981, #059669); }
 .card.card-monthly::before{ background: linear-gradient(90deg, #f59e0b, #d97706); }
 .card-label { font-size: 12px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin-bottom: 12px; }
-.card-body  { display: flex; align-items: center; gap: 10px; justify-content: space-between; min-height: 112px; }
+.card-body  { display: flex; align-items: center; gap: 10px; justify-content: space-between; min-height: 88px; }
 .card-nums  { flex: 1; min-width: 0; }
 .card-value { font-size: clamp(26px, 2.6vw, 38px); letter-spacing: -.045em; font-weight: 650; color: var(--text); line-height: 1.2; }
 .card-sub   { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
@@ -117,7 +117,7 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
   font-size: 12px;
 }
 .holding-row:last-child { border-bottom: none; }
-.holding-row-annual { grid-template-columns: 90px 1fr 50px; min-height: 57px; }
+.holding-row-annual { min-height: 57px; }
 .h-price { text-align: right; font-weight: 600; font-size: 12px; }
 .h-change { font-size: 11px; font-weight: 700; text-align: right; }
 .h-qty  { color: var(--text-muted); font-size: 11px; text-align: right; }
@@ -358,8 +358,7 @@ header { border-bottom: 1px solid var(--border); }
 .modal { border: 1px solid var(--border); border-radius: 18px; box-shadow: 0 24px 80px #162c2926; }
 .overlay { background: #142b244d; backdrop-filter: blur(4px); }
 @media (min-width: 861px) and (max-width: 1200px) {
-  .card { padding: 22px 20px 16px; }
-  .holding-row-annual { grid-template-columns: 82px 1fr 48px; }
+  .card { padding: 20px 20px 14px; }
 }
 @media (max-width: 860px) {
   header { padding: 20px 24px; }
@@ -376,14 +375,13 @@ header { border-bottom: 1px solid var(--border); }
   #sync-status { order: 5; width: 100%; }
   #sync-status:empty { display: none; }
   .summary { padding: 18px 14px 0; gap: 16px; }
-  .card { padding: 22px 18px 14px; border-radius: 16px; }
+  .card { padding: 18px 14px 12px; border-radius: 16px; }
   .card-value { font-size: 32px; }
-  .card-body { min-height: 112px; }
+  .card-body { min-height: 84px; }
 
 
 
   .holding-row { padding: 10px 0; gap: 5px 8px; grid-template-columns: 82px 1fr 48px; }
-  .holding-row-annual { grid-template-columns: 82px 1fr 48px; }
   .table-wrap { padding: 26px 14px 36px; }
   .toolbar { gap: 14px; }
   .toolbar > .table-heading { display: block; }
@@ -396,9 +394,10 @@ header { border-bottom: 1px solid var(--border); }
 }
 
 /* Valuation details: aligned values with price change beneath the yen price. */
-.holdings-list { margin-top: 12px; padding-top: 8px; }
+.holdings-list { margin-top: 8px; padding-top: 6px; }
 .holding-row:not(.holding-row-annual) {
   grid-template-areas: "symbol price qty value";
+  column-gap: 12px;
   grid-template-columns:
     var(--holding-symbol-width, max-content)
     minmax(var(--holding-price-width, max-content), 1fr)
@@ -418,11 +417,31 @@ header { border-bottom: 1px solid var(--border); }
 .holding-row.is-compact:not(.holding-row-annual) {
   grid-template-areas: "symbol value" "price qty";
   grid-template-columns: minmax(0, 1fr) var(--holding-compact-right-width, 105px);
-  gap: 5px 10px;
+  gap: 5px 12px;
 }
 @media (max-width: 640px) {
+  .holding-row:not(.holding-row-annual) { column-gap: 10px; }
   .holding-row:not(.holding-row-annual) .h-price { font-size: 11px; }
   .holding-row:not(.holding-row-annual) .h-qty { font-size: 10px; }
+}
+.holding-row-annual {
+  grid-template-areas: "symbol amount yield";
+  grid-template-columns:
+    var(--annual-symbol-width, max-content)
+    minmax(var(--annual-amount-width, max-content), 1fr)
+    var(--annual-yield-width, max-content);
+  column-gap: 14px;
+}
+.holding-row-annual .annual-symbol { grid-area: symbol; justify-self: start; }
+.holding-row-annual .annual-amount { grid-area: amount; text-align: right; }
+.holding-row-annual .annual-yield { grid-area: yield; font-size: 12px; font-weight: 600; color: var(--text); text-align: right; white-space: nowrap; }
+.holding-row-annual.is-compact {
+  grid-template-areas: "symbol yield" "amount amount";
+  grid-template-columns: minmax(0, 1fr) var(--annual-yield-width, max-content);
+  row-gap: 4px;
+}
+@media (max-width: 640px) {
+  .holding-row-annual { column-gap: 10px; }
 }
 @media (max-width: 640px) {
   .header-right { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; width: 100%; align-items: center; gap: 8px; }
@@ -1018,7 +1037,7 @@ function updateHoldingsLayout() {
     range.selectNodeContents(el);
     return Math.ceil(range.getBoundingClientRect().width);
   };
-  const gap = window.matchMedia('(max-width: 640px)').matches ? 5 : 8;
+  const gap = window.matchMedia('(max-width: 640px)').matches ? 10 : 12;
   const detail = document.getElementById('holdings-detail');
   const rows = [...detail.querySelectorAll('.holding-row')];
   if (!rows.length) return;
@@ -1099,15 +1118,43 @@ function updateAnnualDetail(symTotals, grand) {
       const symYield = val > 0 ? fYield(div / val * 100) : '---';
 
       return `<div class="holding-row holding-row-annual">
-        <span class="symbol-with-logo">${coinLogo(sym)}${symbolLabel(sym)}</span>
-        <div style="text-align:right">
+        <span class="symbol-with-logo annual-symbol">${coinLogo(sym)}${symbolLabel(sym)}</span>
+        <div class="annual-amount">
           <div class="h-val">${fMoney(st.divJpy, st.divUsd)}</div>
           <div class="h-pnl" style="color:var(--text-muted);">${monthly}/月</div>
         </div>
-        <span style="font-size:12px;font-weight:600;color:var(--text);text-align:right;padding-left:8px;">${symYield}</span>
+        <span class="annual-yield">${symYield}</span>
       </div>`;
     }).join('');
+  updateAnnualLayout();
 }
+
+function updateAnnualLayout() {
+  const detail = document.getElementById('annual-detail');
+  const rows = [...detail.querySelectorAll('.holding-row-annual')];
+  if (!rows.length) return;
+  const measure = el => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return Math.ceil(range.getBoundingClientRect().width);
+  };
+  const widest = [0, 0, 0];
+  rows.forEach(row => {
+    const widths = [
+      measure(row.querySelector('.annual-symbol')),
+      Math.max(measure(row.querySelector('.h-val')), measure(row.querySelector('.h-pnl'))),
+      measure(row.querySelector('.annual-yield'))
+    ];
+    widths.forEach((width, index) => { widest[index] = Math.max(widest[index], width); });
+  });
+  ['symbol', 'amount', 'yield'].forEach((name, index) => {
+    detail.style.setProperty(`--annual-${name}-width`, `${widest[index]}px`);
+  });
+  const gap = window.matchMedia('(max-width: 640px)').matches ? 10 : 14;
+  const needed = widest.reduce((sum, width) => sum + width, 0) + gap * 2 + 4;
+  rows.forEach(row => row.classList.toggle('is-compact', needed > detail.clientWidth));
+}
+window.addEventListener('resize', updateAnnualLayout);
 
 // ═══════════════════════════════════════════
 //  INLINE EDIT
