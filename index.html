@@ -464,6 +464,7 @@ header { border-bottom: 1px solid var(--border); }
   #refresh-btn { grid-column: 3; grid-row: 1; }
   .rate-pill { grid-column: 1 / 3; grid-row: 2; justify-self: start; margin: 0; }
   #sync-status { grid-column: 3; grid-row: 2; justify-self: end; width: auto; }
+  #ts.price-alert { display: block; grid-column: 1 / -1; grid-row: 3; }
 }
 /* Dark theme */
 #theme-btn .icon-sun { display: none; }
@@ -766,9 +767,56 @@ function saveLS() {
 // ═══════════════════════════════════════════
 //  PRICE FETCH
 // ═══════════════════════════════════════════
+// CoinGecko が取得できない場合に使う、確認済みの銘柄対応表。
+// CoinGecko ID が変更された銘柄には誤った価格を当てない。
+const PAPRIKA_IDS = {
+  XRP: ['ripple', 'xrp-xrp'],
+  SOL: ['solana', 'sol-solana'],
+  USDC: ['usd-coin', 'usdc-usd-coin'],
+  ADA: ['cardano', 'ada-cardano'],
+  TRUMP: ['official-trump', 'trump-official-trump'],
+  FLR: ['flare-networks', 'flr-flare-network'],
+  NEXO: ['nexo', 'nexo-nexo'],
+};
+
+async function fetchPaprikaPrices(syms) {
+  const unsupported = syms.filter(s => !PAPRIKA_IDS[s] || PAPRIKA_IDS[s][0] !== coinIds[s]);
+  if (unsupported.length) throw new Error('予備の価格情報がない銘柄: ' + unsupported.join(', '));
+
+  const entries = await Promise.all(syms.map(async s => {
+    const id = PAPRIKA_IDS[s][1];
+    const r = await fetch(`https://api.coinpaprika.com/v1/tickers/${encodeURIComponent(id)}?quotes=USD,JPY`);
+    if (!r.ok) throw new Error(`予備API HTTP ${r.status}`);
+    const data = await r.json();
+    const usd = data.quotes?.USD;
+    const jpy = data.quotes?.JPY;
+    const updatedAt = Date.parse(data.last_updated);
+    if (data.id !== id || data.symbol !== s || !Number.isFinite(usd?.price) || !Number.isFinite(jpy?.price)
+        || usd.price <= 0 || jpy.price <= 0 || !Number.isFinite(updatedAt)
+        || Date.now() - updatedAt > 30 * 60 * 1000) {
+      throw new Error(`予備の価格情報を確認できません: ${s}`);
+    }
+    return [s, {
+      price: {
+        usd: usd.price,
+        jpy: jpy.price,
+        change24h: jpy.percent_change_24h ?? usd.percent_change_24h ?? null,
+        change24hUsd: usd.percent_change_24h ?? null,
+        change24hJpy: jpy.percent_change_24h ?? null,
+      },
+      updatedAt,
+    }];
+  }));
+  return {
+    prices: Object.fromEntries(entries.map(([s, entry]) => [s, entry.price])),
+    updatedAt: Math.min(...entries.map(([, entry]) => entry.updatedAt)),
+  };
+}
+
 async function fetchPrices() {
   const btn = document.getElementById('refresh-btn');
   const ic  = document.getElementById('refresh-icon');
+  const ts  = document.getElementById('ts');
   btn.disabled = true;
   ic.innerHTML = '<span class="spin"></span>';
 
@@ -776,22 +824,25 @@ async function fetchPrices() {
   const ids  = [...new Set(syms.map(s => coinIds[s]).filter(Boolean))];
 
   if (!ids.length) {
-    document.getElementById('ts').textContent = '⚠ CoinGecko IDが未設定です';
+    ts.textContent = '⚠ CoinGecko IDが未設定です';
+    ts.classList.add('price-alert');
     btn.disabled = false; ic.textContent = '↺'; return;
   }
 
   fetchCoinLogos(ids);
 
+  let source = 'CoinGecko';
+  let priceTime = Date.now();
   try {
     const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(',')}&vs_currencies=usd,jpy&include_24hr_change=true`;
     const r = await fetch(url);
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
 
-    prices = {};
+    const fetchedPrices = {};
     for (const s of syms) {
       const id = coinIds[s];
-      if (id && data[id]) prices[s] = {
+      if (id && data[id]) fetchedPrices[s] = {
         usd: data[id].usd,
         jpy: data[id].jpy,
         change24h: data[id].jpy_24h_change ?? data[id].usd_24h_change ?? null,
@@ -799,13 +850,33 @@ async function fetchPrices() {
         change24hJpy: data[id].jpy_24h_change ?? null,
       };
     }
+    if (Object.keys(fetchedPrices).length !== syms.length) throw new Error('一部の銘柄の価格がありません');
+    prices = fetchedPrices;
+  } catch (primaryError) {
+    try {
+      const fallback = await fetchPaprikaPrices(syms);
+      prices = fallback.prices;
+      priceTime = fallback.updatedAt;
+      source = 'CoinPaprika';
+    } catch (fallbackError) {
+      ts.textContent = '取得失敗: ' + fallbackError.message;
+      ts.classList.add('price-alert');
+      btn.disabled = false; ic.textContent = '↺';
+      render();
+      return;
+    }
+  }
+
+  try {
     const first = Object.values(prices)[0];
     if (first) usdJpy = first.jpy / first.usd;
 
     document.getElementById('rate-val').textContent = usdJpy ? usdJpy.toFixed(2) : '---';
-    document.getElementById('ts').textContent = '更新: ' + new Date().toLocaleTimeString('ja-JP');
+    ts.textContent = '価格: ' + new Date(priceTime).toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'}) + (source === 'CoinPaprika' ? ' · CoinPaprika' : '');
+    ts.classList.toggle('price-alert', source === 'CoinPaprika');
   } catch(e) {
-    document.getElementById('ts').textContent = '取得失敗: ' + e.message;
+    ts.textContent = '取得失敗: ' + e.message;
+    ts.classList.add('price-alert');
   }
   btn.disabled = false; ic.textContent = '↺';
   render();
