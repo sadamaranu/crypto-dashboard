@@ -340,7 +340,6 @@ tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2
   .form-row { grid-template-columns: 90px 1fr; }
   .guide-example { font-size: 11px; }
 }
-
 /* Calm portfolio layout */
 body { font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
 header { border-bottom: 1px solid var(--border); }
@@ -386,11 +385,22 @@ header { border-bottom: 1px solid var(--border); }
   .toolbar { gap: 14px; }
   .toolbar > .table-heading { display: block; }
   .toolbar-hint { display: block; font-size: 10px; }
-  tr.data-row { padding: 14px 18px; border-radius: 14px; margin-bottom: 14px; }
-  tr.data-row td { padding: 8px 0; }
-  tr.data-row td.mob-symbol { padding-bottom: 14px; margin-bottom: 6px; }
+  tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  tr.data-row { min-width: 0; padding: 12px 10px; border-radius: 14px; margin-bottom: 0; }
+  tr.data-row td { min-width: 0; padding: 7px 0; gap: 4px; font-size: 11px; }
+  tr.data-row td::before { flex: 0 0 42px; min-width: 0; margin-right: 0; font-size: 10px; }
+  tr.data-row td:not(.mob-symbol):not(.mob-delete) > span { flex: 1 1 0; min-width: 0; max-width: 100%; overflow-wrap: anywhere; text-align: right; }
+  tr.data-row td .price-value { white-space: normal; }
+  tr.data-row td.mob-symbol { padding-bottom: 12px; margin-bottom: 4px; }
   .form-row { grid-template-columns: 80px minmax(0, 1fr); }
   .form-row input, .form-row textarea { min-width: 0; width: 100%; }
+}
+@media (max-width: 360px) {
+  .table-wrap { padding-left: 8px; padding-right: 8px; }
+  tbody { gap: 6px; }
+  tr.data-row { padding-left: 6px; padding-right: 6px; }
+  tr.data-row td { gap: 3px; font-size: 10px; }
+  tr.data-row td::before { flex-basis: 36px; font-size: 9px; }
 }
 
 /* Valuation details: aligned values with price change beneath the yen price. */
