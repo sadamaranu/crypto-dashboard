@@ -399,7 +399,7 @@ header { border-bottom: 1px solid var(--border); }
 .holdings-list { margin-top: 12px; padding-top: 8px; }
 .holding-row:not(.holding-row-annual) {
   grid-template-areas: "symbol price qty value";
-  grid-template-columns: minmax(70px, .9fr) minmax(150px, 1.8fr) minmax(72px, .9fr) minmax(110px, 1.2fr);
+  grid-template-columns: max-content minmax(max-content, 1fr) max-content max-content;
 }
 .holding-row:not(.holding-row-annual) .h-symbol { grid-area: symbol; min-width: 0; }
 .holding-row:not(.holding-row-annual) .h-price-cell { grid-area: price; min-width: 0; }
@@ -411,12 +411,10 @@ header { border-bottom: 1px solid var(--border); }
 .holding-row:not(.holding-row-annual) .h-val,
 .holding-row:not(.holding-row-annual) .h-pnl { text-align: right; }
 .h-price-cell .h-change { display: block; margin-top: 3px; line-height: 1.2; }
-@media (max-width: 1200px) {
-  .holding-row:not(.holding-row-annual) {
-    grid-template-areas: "symbol value" "price qty";
-    grid-template-columns: minmax(0, 1fr) minmax(105px, auto);
-    gap: 5px 10px;
-  }
+.holding-row.is-compact:not(.holding-row-annual) {
+  grid-template-areas: "symbol value" "price qty";
+  grid-template-columns: minmax(0, 1fr) minmax(105px, auto);
+  gap: 5px 10px;
 }
 @media (max-width: 640px) {
   .holding-row:not(.holding-row-annual) .h-price { font-size: 11px; }
@@ -1007,7 +1005,26 @@ function updateHoldingsDetail(symTotals, grand) {
         </div>
       </div>`;
     }).join('');
+  updateHoldingsLayout();
 }
+
+function updateHoldingsLayout() {
+  const measure = el => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return range.getBoundingClientRect().width;
+  };
+  const gap = window.matchMedia('(max-width: 640px)').matches ? 5 : 8;
+  const rows = [...document.querySelectorAll('#holdings-detail .holding-row')];
+  const compact = rows.some(row => {
+    const price = Math.max(measure(row.querySelector('.h-price')), measure(row.querySelector('.h-change')));
+    const value = Math.max(measure(row.querySelector('.h-val')), measure(row.querySelector('.h-pnl')));
+    const needed = measure(row.querySelector('.h-symbol')) + price + measure(row.querySelector('.h-qty')) + value + gap * 3 + 6;
+    return needed > row.clientWidth;
+  });
+  rows.forEach(row => row.classList.toggle('is-compact', compact));
+}
+window.addEventListener('resize', updateHoldingsLayout);
 
 // ═══════════════════════════════════════════
 //  ANNUAL DETAIL CARD
