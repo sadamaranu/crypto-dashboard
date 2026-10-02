@@ -524,7 +524,7 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
       <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg>
       <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
     </button>
-    <button class="btn btn-ghost" id="refresh-btn" onclick="fetchPrices()">
+    <button class="btn btn-ghost" id="refresh-btn" onclick="fetchPrices(true)">
       <span id="refresh-icon">↺</span> 価格を更新
     </button>
   </div>
@@ -733,6 +733,15 @@ let coinLogos  = loadLS('coinLogos') || {};
 let coinLogosUpdatedAt = Number(localStorage.getItem('coinLogosUpdatedAt')) || 0;
 let prices    = {};
 let usdJpy    = null;
+let priceUpdatedAt = 0;
+let priceFetchedAt = 0;
+let priceSource = '';
+let priceFetchInFlight = false;
+let nativePriceCache = null;
+let nativePriceReady;
+const nativePricePromise = new Promise(resolve => { nativePriceReady = resolve; });
+const PRICE_CACHE_KEY = 'dashboardPriceCacheV1';
+const PRICE_FRESH_MS = 5 * 60 * 1000;
 let displayCurrency = localStorage.getItem('displayCurrency') === 'USD' ? 'USD' : 'JPY';
 let nextId    = Math.max(0, ...holdings.map(h=>h.id)) + 1;
 let dragId    = null;
@@ -762,6 +771,76 @@ function saveLS() {
     syncTimer = setTimeout(gistSave, 2000);
   }
 }
+
+function priceTimeLabel(time) {
+  const date = new Date(time);
+  if (!Number.isFinite(date.getTime())) return '時刻不明';
+  const sameDay = date.toDateString() === new Date().toDateString();
+  return date.toLocaleString('ja-JP', sameDay
+    ? {hour:'2-digit', minute:'2-digit'}
+    : {month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'});
+}
+
+function validPriceCache(cache) {
+  if (!cache || !Number.isFinite(cache.updatedAt) || !Number.isFinite(cache.fetchedAt)
+      || cache.updatedAt <= 0 || cache.fetchedAt <= 0 || cache.fetchedAt > Date.now() + 60000
+      || !cache.prices || !cache.coinIds) return false;
+  return holdings.length > 0 && holdings.every(h => {
+    const symbol = h.symbol.toUpperCase();
+    const quote = cache.prices[symbol];
+    return cache.coinIds[symbol] === coinIds[symbol] && quote
+      && Number.isFinite(quote.jpy) && quote.jpy > 0
+      && Number.isFinite(quote.usd) && quote.usd > 0;
+  });
+}
+
+function restorePriceCache() {
+  const candidates = [loadLS(PRICE_CACHE_KEY), nativePriceCache]
+    .filter(validPriceCache).sort((a, b) => b.fetchedAt - a.fetchedAt);
+  if (!candidates.length) {
+    prices = {}; usdJpy = null; priceUpdatedAt = 0; priceFetchedAt = 0; priceSource = '';
+    document.getElementById('rate-val').textContent = '---';
+    return false;
+  }
+  const cache = candidates[0];
+  prices = cache.prices;
+  priceUpdatedAt = cache.updatedAt;
+  priceFetchedAt = cache.fetchedAt;
+  priceSource = cache.source || '';
+  const first = Object.values(prices)[0];
+  usdJpy = first ? first.jpy / first.usd : null;
+  document.getElementById('rate-val').textContent = usdJpy ? usdJpy.toFixed(2) : '---';
+  const stale = Date.now() - priceFetchedAt >= PRICE_FRESH_MS;
+  const ts = document.getElementById('ts');
+  ts.textContent = (stale ? '前回価格: ' : '価格: ') + priceTimeLabel(priceUpdatedAt)
+    + (priceSource === 'CoinPaprika' ? ' · CoinPaprika' : '')
+    + (stale ? ' · 更新待ち' : ' · 保存済み');
+  ts.classList.toggle('price-alert', stale);
+  return true;
+}
+
+function currentPriceCache() {
+  if (!priceFetchedAt || !priceUpdatedAt) return null;
+  return {
+    prices, coinIds: Object.fromEntries([...new Set(holdings.map(h => h.symbol.toUpperCase()))]
+      .map(symbol => [symbol, coinIds[symbol]])),
+    updatedAt: priceUpdatedAt, fetchedAt: priceFetchedAt, source: priceSource,
+  };
+}
+
+window.acceptNativePrices = function(cache) {
+  nativePriceCache = cache;
+  nativePriceReady();
+  if (restorePriceCache()) render();
+};
+
+window.getWidgetSnapshot = function() {
+  return {
+    gistId: ghToken && ghGistId ? ghGistId : '',
+    holdings, coinIds,
+    priceCache: validPriceCache(currentPriceCache()) ? currentPriceCache() : null,
+  };
+};
 
 // ═══════════════════════════════════════════
 //  PRICE FETCH
@@ -812,7 +891,8 @@ async function fetchPaprikaPrices(syms) {
   };
 }
 
-async function fetchPrices() {
+async function fetchPrices(force = false) {
+  if (priceFetchInFlight) return;
   const btn = document.getElementById('refresh-btn');
   const ic  = document.getElementById('refresh-icon');
   const ts  = document.getElementById('ts');
@@ -829,6 +909,16 @@ async function fetchPrices() {
   }
 
   fetchCoinLogos(ids);
+  if (!force && priceFetchedAt && Date.now() - priceFetchedAt < PRICE_FRESH_MS
+      && validPriceCache(currentPriceCache())) {
+    btn.disabled = false; ic.textContent = '↺';
+    return;
+  }
+  priceFetchInFlight = true;
+  if (priceUpdatedAt) {
+    ts.textContent = '前回価格: ' + priceTimeLabel(priceUpdatedAt) + ' · 更新中';
+    ts.classList.add('price-alert');
+  }
 
   let source = 'CoinGecko';
   let priceTime = Date.now();
@@ -858,9 +948,10 @@ async function fetchPrices() {
       priceTime = fallback.updatedAt;
       source = 'CoinPaprika';
     } catch (fallbackError) {
-      ts.textContent = '取得失敗: ' + fallbackError.message;
+      ts.textContent = '取得失敗: ' + fallbackError.message
+        + (priceUpdatedAt ? ' · 前回価格 ' + priceTimeLabel(priceUpdatedAt) : '');
       ts.classList.add('price-alert');
-      btn.disabled = false; ic.textContent = '↺';
+      btn.disabled = false; ic.textContent = '↺'; priceFetchInFlight = false;
       render();
       return;
     }
@@ -871,13 +962,17 @@ async function fetchPrices() {
     if (first) usdJpy = first.jpy / first.usd;
 
     document.getElementById('rate-val').textContent = usdJpy ? usdJpy.toFixed(2) : '---';
-    ts.textContent = '価格: ' + new Date(priceTime).toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'}) + (source === 'CoinPaprika' ? ' · CoinPaprika' : '');
+    priceUpdatedAt = priceTime;
+    priceFetchedAt = Date.now();
+    priceSource = source;
+    try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify(currentPriceCache())); } catch(e) {}
+    ts.textContent = '価格: ' + priceTimeLabel(priceTime) + (source === 'CoinPaprika' ? ' · CoinPaprika' : '');
     ts.classList.toggle('price-alert', source === 'CoinPaprika');
   } catch(e) {
     ts.textContent = '取得失敗: ' + e.message;
     ts.classList.add('price-alert');
   }
-  btn.disabled = false; ic.textContent = '↺';
+  btn.disabled = false; ic.textContent = '↺'; priceFetchInFlight = false;
   render();
 }
 
@@ -1701,11 +1796,12 @@ function toggleTheme() {
 // ═══════════════════════════════════════════
 (async function init() {
   updateThemeButton();
+  restorePriceCache();
   render();
   if (ghToken && ghGistId) {
     setSyncStatus('syncing');
     const ok = await gistLoad();
-    if (ok) { render(); setSyncStatus('ok'); }
+    if (ok) { restorePriceCache(); render(); setSyncStatus('ok'); }
     else     setSyncStatus('error', '読み込み失敗');
   } else if (!ghToken) {
     // 未接続時は案内を表示
@@ -1716,8 +1812,19 @@ function toggleTheme() {
       </td></tr>`;
     }
   }
+  if (navigator.userAgent.includes('CryptoDashboardApp')) {
+    await Promise.race([nativePricePromise, new Promise(resolve => setTimeout(resolve, 1200))]);
+    restorePriceCache();
+    render();
+  }
   fetchPrices();
 })();
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && Date.now() - priceFetchedAt >= PRICE_FRESH_MS) fetchPrices();
+});
+setInterval(() => {
+  if (!document.hidden && Date.now() - priceFetchedAt >= PRICE_FRESH_MS) fetchPrices();
+}, 60_000);
 </script>
 </body>
 </html>
