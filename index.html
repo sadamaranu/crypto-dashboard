@@ -736,6 +736,7 @@ let usdJpy    = null;
 let priceUpdatedAt = 0;
 let priceFetchedAt = 0;
 let priceSource = '';
+let priceCoinIds = {};
 let priceFetchInFlight = false;
 let nativePriceCache = null;
 let nativePriceReady;
@@ -798,12 +799,13 @@ function restorePriceCache() {
   const candidates = [loadLS(PRICE_CACHE_KEY), nativePriceCache]
     .filter(validPriceCache).sort((a, b) => b.fetchedAt - a.fetchedAt);
   if (!candidates.length) {
-    prices = {}; usdJpy = null; priceUpdatedAt = 0; priceFetchedAt = 0; priceSource = '';
+    prices = {}; usdJpy = null; priceUpdatedAt = 0; priceFetchedAt = 0; priceSource = ''; priceCoinIds = {};
     document.getElementById('rate-val').textContent = '---';
     return false;
   }
   const cache = candidates[0];
   prices = cache.prices;
+  priceCoinIds = cache.coinIds;
   priceUpdatedAt = cache.updatedAt;
   priceFetchedAt = cache.fetchedAt;
   priceSource = cache.source || '';
@@ -822,8 +824,7 @@ function restorePriceCache() {
 function currentPriceCache() {
   if (!priceFetchedAt || !priceUpdatedAt) return null;
   return {
-    prices, coinIds: Object.fromEntries([...new Set(holdings.map(h => h.symbol.toUpperCase()))]
-      .map(symbol => [symbol, coinIds[symbol]])),
+    prices, coinIds: priceCoinIds,
     updatedAt: priceUpdatedAt, fetchedAt: priceFetchedAt, source: priceSource,
   };
 }
@@ -965,6 +966,7 @@ async function fetchPrices(force = false) {
     priceUpdatedAt = priceTime;
     priceFetchedAt = Date.now();
     priceSource = source;
+    priceCoinIds = Object.fromEntries(syms.map(symbol => [symbol, coinIds[symbol]]));
     try { localStorage.setItem(PRICE_CACHE_KEY, JSON.stringify(currentPriceCache())); } catch(e) {}
     ts.textContent = '価格: ' + priceTimeLabel(priceTime) + (source === 'CoinPaprika' ? ' · CoinPaprika' : '');
     ts.classList.toggle('price-alert', source === 'CoinPaprika');
