@@ -60,6 +60,8 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .btn-visibility:hover { background: var(--hover-bg); color: var(--accent); }
 .btn-visibility svg { display: block; }
 .btn-visibility[aria-pressed="true"] { color: var(--accent); }
+.btn-sort-step { background: var(--hover-bg); color: var(--accent); border-color: var(--border); padding: 4px 8px; }
+.btn-sort-step:hover { background: var(--total-bg); }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .btn-sm { padding: 10px 14px; font-size: 12px; }
 
@@ -144,7 +146,7 @@ th.center { text-align: center; }
 td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; text-align: right; white-space: nowrap; vertical-align: middle; }
 td.left { text-align: left; }
 td.center { text-align: center; }
-td.mobile-summary, .mobile-holdings-head { display: none; }
+td.mobile-summary, td.mobile-edit-action, .mobile-holdings-head { display: none; }
 tr:last-child td { border-bottom: none; }
 tr.data-row:hover td { background: var(--hover-bg); }
 
@@ -162,14 +164,8 @@ tr.data-row:hover td { background: var(--hover-bg); }
   background: #fff; outline: none;
 }
 
-/* drag & drop */
-tr.data-row { cursor: grab; }
-tr.data-row:active { cursor: grabbing; }
-tr.data-row.dragging { opacity: .35; }
-tr.data-row.drag-over td { background: #eff6ff !important; box-shadow: inset 0 2px 0 var(--accent); }
 tr.data-row.is-hidden { background: #e9ede9; }
 tr.data-row.is-hidden td:not(.mob-actions) { opacity: .45; }
-.drag-handle { color: #cbd5e0; font-size: 13px; margin-right: 4px; cursor: grab; user-select: none; }
 
 /* 計算式セル */
 .formula-text {
@@ -204,6 +200,9 @@ tr.data-row.is-hidden td:not(.mob-actions) { opacity: .45; }
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9000; align-items: center; justify-content: center; }
 .overlay.open { display: flex; }
 .modal { background: #fff; border-radius: 12px; padding: 24px; width: 480px; max-width: 95vw; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.row-actions-modal { width: 320px; }
+.row-actions-modal .btn { display: flex; width: 100%; justify-content: flex-start; margin-top: 8px; }
+.row-actions-modal .btn-danger { color: #dc2626; border-color: var(--border); }
 .modal h2 { font-size: 15px; font-weight: 700; margin-bottom: 18px; }
 .form-row { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 8px; margin-bottom: 10px; }
 .form-row label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
@@ -394,6 +393,7 @@ header { border-bottom: 1px solid var(--border); }
   .toolbar > .table-heading { display: block; }
   .toolbar-hint { display: block; font-size: 10px; }
   .hint-desktop { display: none; }
+  .toolbar > div button { padding: 9px 5px; font-size: 11px; white-space: nowrap; }
   .mobile-holdings-head, .mobile-expand {
     display: grid;
     grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, .9fr) minmax(0, .72fr);
@@ -405,10 +405,13 @@ header { border-bottom: 1px solid var(--border); }
   tbody { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
   tr.data-row { position: relative; min-width: 0; padding: 0; border-radius: 12px; margin-bottom: 0; overflow: hidden; }
   tr.data-row:not(.is-expanded) > td:not(.mobile-summary) { display: none; }
+  tr.data-row.is-sorting > td.mob-actions { display: flex; position: static; justify-content: flex-end; width: auto; margin: 0 12px 6px; padding: 4px 0 0; border-top: 1px solid var(--border) !important; }
+  tr.data-row.is-sorting .mobile-expand::after { display: none; }
   tr.data-row td { min-width: 0; padding: 7px 0; gap: 4px; font-size: 11px; }
   tr.data-row td.mobile-summary { display: block; padding: 0; }
   tr.data-row td.mobile-summary::before { display: none; }
-  .mobile-expand { position: relative; width: 100%; min-height: 44px; padding: 9px 24px 9px 12px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+  .mobile-expand { position: relative; width: 100%; min-height: 44px; padding: 9px 24px 9px 12px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y; }
+  .mobile-expand:disabled { cursor: default; }
   .mobile-expand > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-expand > span:not(:first-child) { text-align: right; }
   .mobile-expand .mobile-symbol { display: flex; align-items: center; gap: 5px; font-weight: 700; }
@@ -421,8 +424,14 @@ header { border-bottom: 1px solid var(--border); }
   tr.data-row td::before { flex: 0 0 42px; min-width: 0; margin-right: 0; font-size: 10px; }
   tr.data-row td:not(.mob-symbol):not(.mob-actions) > span { flex: 1 1 0; min-width: 0; max-width: 100%; overflow-wrap: anywhere; text-align: right; padding-right: 0; border-right: 0; }
   tr.data-row td .price-value { white-space: normal; }
-  tr.data-row td.mob-symbol { padding-right: 56px; padding-bottom: 8px; margin-bottom: 4px; }
-  tr.data-row.is-expanded > td.mob-actions { position: absolute; top: 52px; right: 10px; width: auto; margin: 0; padding: 0; border: 0 !important; }
+  tr.data-row.is-expanded > td.mob-symbol,
+  tr.data-row.is-expanded > td[data-label="取引所"],
+  tr.data-row.is-expanded > td[data-label="枚数"],
+  tr.data-row.is-expanded > td[data-label="年利"],
+  tr.data-row.is-expanded > td.mob-actions { display: none; }
+  tr.data-row.is-expanded > td.mobile-edit-action { display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--border) !important; }
+  .row-actions-overlay { align-items: flex-end; }
+  .row-actions-modal { width: 100%; max-width: none; border-radius: 18px 18px 0 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
   .form-row { grid-template-columns: 80px minmax(0, 1fr); }
   .form-row input, .form-row textarea { min-width: 0; width: 100%; }
 }
@@ -528,7 +537,6 @@ html[data-theme="dark"] .modal-hint,
 html[data-theme="dark"] .guide-block { background: #223127; }
 html[data-theme="dark"] .modal-hint code,
 html[data-theme="dark"] .guide-note code { background: #34483a; color: var(--text); }
-html[data-theme="dark"] tr.data-row.drag-over td { background: #294636 !important; }
 html[data-theme="dark"] .pnl-pos { color: #72d99a; }
 html[data-theme="dark"] .pnl-neg { color: #ff9292; }
 html[data-theme="dark"] .map-item input[readonly] { background: #26362c !important; color: var(--text-muted) !important; }
@@ -589,10 +597,11 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
 
 <div class="table-wrap">
   <div class="toolbar">
-    <div class="table-heading"><h2>保有銘柄</h2><p class="toolbar-hint hint-desktop">値をクリックして編集 · 行をドラッグして並べ替え</p><p class="toolbar-hint hint-mobile">カードをタップして詳細を表示・編集</p></div>
+    <div class="table-heading"><h2>保有銘柄</h2><p class="toolbar-hint hint-desktop">値をクリックして編集</p><p class="toolbar-hint hint-mobile">カードをタップして詳細を表示 · 長押しで操作</p></div>
     <div style="display:flex;gap:8px;">
-      <button class="btn btn-ghost btn-sm" onclick="openSettings()">コイン設定</button>
       <button class="btn btn-primary" onclick="openAdd()">＋ 銘柄を追加</button>
+      <button class="btn btn-ghost btn-sm" onclick="openSettings()">コイン設定</button>
+      <button class="btn btn-ghost btn-sm" id="sort-btn" type="button" onclick="toggleSortMode()" aria-pressed="false">並び替え</button>
     </div>
   </div>
   <div class="table-container">
@@ -617,10 +626,20 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
   </div>
 </div>
 
+<!-- MOBILE ROW ACTIONS -->
+<div class="overlay row-actions-overlay" id="row-actions-overlay" onclick="if(event.target===this)closeRowActions()">
+  <div class="modal row-actions-modal" role="dialog" aria-modal="true" aria-labelledby="row-actions-title">
+    <h2 id="row-actions-title"></h2>
+    <button class="btn btn-ghost" id="row-hide-action" type="button" onclick="performRowAction('hide')"></button>
+    <button class="btn btn-danger" type="button" onclick="performRowAction('delete')">削除</button>
+    <button class="btn btn-ghost" type="button" onclick="closeRowActions()">キャンセル</button>
+  </div>
+</div>
+
 <!-- ADD MODAL -->
 <div class="overlay" id="add-overlay">
   <div class="modal">
-    <h2>＋ 銘柄を追加</h2>
+    <h2 id="add-modal-title">＋ 銘柄を追加</h2>
     <div class="modal-hint">
       計算式の書き方は <a href="#" onclick="closeAdd();openFormulaGuide();return false;" style="color:var(--accent);font-weight:600;">📐 計算式ガイド</a> を参照してください。<br>
       <span style="color:#94a3b8;">空欄の場合は年利を手入力できます。</span>
@@ -634,7 +653,7 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
     <div class="form-row"><label>CoinGecko ID</label><input id="a-cgid" placeholder="例: bitcoin（省略可）" /></div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeAdd()">キャンセル</button>
-      <button class="btn btn-primary" onclick="addRow()">追加</button>
+      <button class="btn btn-primary" id="add-submit-btn" onclick="addRow()">追加</button>
     </div>
   </div>
 </div>
@@ -773,7 +792,9 @@ const PRICE_CACHE_KEY = 'dashboardPriceCacheV1';
 const PRICE_FRESH_MS = 5 * 60 * 1000;
 let displayCurrency = localStorage.getItem('displayCurrency') === 'USD' ? 'USD' : 'JPY';
 let nextId    = Math.max(0, ...holdings.map(h=>h.id)) + 1;
-let dragId    = null;
+let sortMode  = false;
+let rowActionId = null;
+let editingRowId = null;
 let ghToken   = localStorage.getItem('ghToken')  || '';
 let ghGistId  = localStorage.getItem('ghGistId') || '';
 let syncTimer = null;
@@ -1448,6 +1469,7 @@ window.startEditMemo = function(el, hid) {
 };
 
 window.toggleRowExpanded = function(id) {
+  if (sortMode) return;
   const expanded = !expandedRowIds.has(id);
   if (expanded) expandedRowIds.add(id);
   else expandedRowIds.delete(id);
@@ -1471,47 +1493,80 @@ window.deleteRow = function(id) {
 };
 
 // ═══════════════════════════════════════════
-//  DRAG & DROP
+//  ROW ACTIONS & REORDERING
 // ═══════════════════════════════════════════
-function attachDrag(tr, hid) {
-  tr.draggable = true;
+window.toggleSortMode = function() {
+  sortMode = !sortMode;
+  if (sortMode) { expandedRowIds.clear(); closeRowActions(); }
+  const button = document.getElementById('sort-btn');
+  button.textContent = sortMode ? '完了' : '並び替え';
+  button.setAttribute('aria-pressed', String(sortMode));
+  document.querySelector('.hint-mobile').textContent = sortMode
+    ? '上下ボタンで並び替え、完了を押して終了'
+    : 'カードをタップして詳細を表示 · 長押しで操作';
+  document.querySelector('.hint-desktop').textContent = sortMode
+    ? '上下ボタンで並び替え、完了を押して終了' : '値をクリックして編集';
+  render();
+};
+window.moveRow = function(id, direction) {
+  const index = holdings.findIndex(h => h.id === id);
+  const target = index + direction;
+  if (index < 0 || target < 0 || target >= holdings.length) return;
+  [holdings[index], holdings[target]] = [holdings[target], holdings[index]];
+  saveLS();
+  render();
+};
+window.closeRowActions = function() {
+  document.getElementById('row-actions-overlay').classList.remove('open');
+  rowActionId = null;
+};
+window.showRowActions = function(id) {
+  if (sortMode || !window.matchMedia('(max-width: 640px)').matches) return;
+  const holding = holdings.find(h => h.id === id);
+  if (!holding) return;
+  rowActionId = id;
+  document.getElementById('row-actions-title').textContent = holding.symbol.toUpperCase();
+  document.getElementById('row-hide-action').textContent = hiddenRowIds.has(id)
+    ? '表示する（計算に戻す）' : '非表示（計算から除外）';
+  document.getElementById('row-actions-overlay').classList.add('open');
+};
+window.performRowAction = function(action) {
+  const id = rowActionId;
+  closeRowActions();
+  if (id == null) return;
+  if (action === 'hide') toggleRowHidden(id);
+  if (action === 'delete') deleteRow(id);
+};
+function attachMobileActions(tr, hid) {
   tr.dataset.hid = hid;
-
-  tr.addEventListener('dragstart', e => {
-    dragId = hid;
-    e.dataTransfer.effectAllowed = 'move';
-    // Firefox requires setData
-    e.dataTransfer.setData('text/plain', hid);
-    requestAnimationFrame(() => tr.classList.add('dragging'));
+  const button = tr.querySelector('.mobile-expand');
+  let timer = null, startX = 0, startY = 0, longPressedAt = 0;
+  const cancel = () => { if (timer) clearTimeout(timer); timer = null; };
+  tr.addEventListener('pointerdown', e => {
+    if (sortMode || !window.matchMedia('(max-width: 640px)').matches || e.button !== 0
+        || e.target.closest('.editable, input, textarea, .mob-actions, .mobile-edit-action')) return;
+    startX = e.clientX; startY = e.clientY;
+    timer = setTimeout(() => {
+      timer = null;
+      longPressedAt = Date.now();
+      showRowActions(hid);
+    }, 550);
   });
-  tr.addEventListener('dragend', () => {
-    dragId = null;
-    document.querySelectorAll('tr.dragging').forEach(el => el.classList.remove('dragging'));
-    document.querySelectorAll('tr.drag-over').forEach(el => el.classList.remove('drag-over'));
+  tr.addEventListener('pointermove', e => {
+    if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
   });
-  tr.addEventListener('dragover', e => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (hid !== dragId) {
-      document.querySelectorAll('tr.drag-over').forEach(el => el.classList.remove('drag-over'));
-      tr.classList.add('drag-over');
-    }
+  tr.addEventListener('pointerup', cancel);
+  tr.addEventListener('pointercancel', cancel);
+  button.addEventListener('click', e => {
+    if (sortMode || Date.now() - longPressedAt < 900) { e.preventDefault(); return; }
+    toggleRowExpanded(hid);
   });
-  tr.addEventListener('dragleave', e => {
-    // only remove if leaving to outside this row
-    if (!tr.contains(e.relatedTarget)) tr.classList.remove('drag-over');
-  });
-  tr.addEventListener('drop', e => {
-    e.preventDefault();
-    tr.classList.remove('drag-over');
-    if (dragId == null || dragId === hid) return;
-    const fromIdx = holdings.findIndex(h => h.id === dragId);
-    const toIdx   = holdings.findIndex(h => h.id === hid);
-    if (fromIdx === -1 || toIdx === -1) return;
-    const [moved] = holdings.splice(fromIdx, 1);
-    holdings.splice(toIdx, 0, moved);
-    saveLS();
-    render();
+  tr.addEventListener('contextmenu', e => {
+    if (sortMode || !window.matchMedia('(max-width: 640px)').matches
+        || e.target.closest('.editable, input, textarea, .mob-actions, .mobile-edit-action')) return;
+    e.preventDefault(); cancel();
+    longPressedAt = Date.now();
+    showRowActions(hid);
   });
 }
 
@@ -1538,7 +1593,7 @@ function render() {
   let grand = { valUsd:0, valJpy:0, divUsd:0, divJpy:0, mDivJpy:0 };
   let grandOk = holdings.length > 0 && holdings.every(h => hiddenRowIds.has(h.id));
 
-  for (const row of allRows) {
+  for (const [index, row] of allRows.entries()) {
     const { h, pd, formulaResult, hasFormula, effYield, c } = row;
     const sym = h.symbol.toUpperCase();
     const hidden = hiddenRowIds.has(h.id);
@@ -1571,7 +1626,7 @@ function render() {
 
     const tr = document.createElement('tr');
     const expanded = expandedRowIds.has(h.id);
-    tr.className = `data-row${hidden ? ' is-hidden' : ''}${expanded ? ' is-expanded' : ''}`;
+    tr.className = `data-row${hidden ? ' is-hidden' : ''}${expanded ? ' is-expanded' : ''}${sortMode ? ' is-sorting' : ''}`;
     const summaryBase = `${sym}、取引所 ${h.exchange || 'なし'}、枚数 ${fQty(h.quantity)}、年利 ${fYield(effYield)}`;
     const visibilityLabel = hidden ? '計算に戻す' : '計算から一時的に外す';
     const visibilityIcon = hidden
@@ -1583,9 +1638,12 @@ function render() {
     const valCell = pd
       ? `<span class="price-value">${fMoney(pd.valJpy, pd.valUsd)}</span>`
       : '---';
+    const actionCell = sortMode
+      ? `<button type="button" class="btn btn-sort-step" onclick="moveRow(${h.id},-1)" aria-label="${escapeHtml(sym)}を上へ" title="上へ" ${index === 0 ? 'disabled' : ''}>↑</button><button type="button" class="btn btn-sort-step" onclick="moveRow(${h.id},1)" aria-label="${escapeHtml(sym)}を下へ" title="下へ" ${index === allRows.length - 1 ? 'disabled' : ''}>↓</button>`
+      : `<button type="button" class="btn btn-visibility" onclick="toggleRowHidden(${h.id})" aria-label="${visibilityLabel}" title="${visibilityLabel}" aria-pressed="${hidden}">${visibilityIcon}</button><button type="button" class="btn btn-danger" onclick="deleteRow(${h.id})" aria-label="削除" title="削除">✕</button>`;
     tr.innerHTML = `
-      <td class="mobile-summary" data-label=""><button type="button" class="mobile-expand" onclick="toggleRowExpanded(${h.id})" aria-expanded="${expanded}" data-summary-label="${escapeHtml(summaryBase)}" aria-label="${escapeHtml(summaryBase)}。詳細を${expanded ? '閉じる' : '開く'}"><span class="mobile-symbol">${coinLogo(sym)}<span class="mobile-symbol-name">${escapeHtml(sym)}</span></span><span title="${escapeHtml(h.exchange || '')}">${escapeHtml(h.exchange || '—')}</span><span>${fQty(h.quantity)}</span><span>${fYield(effYield)}</span></button></td>
-      <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span><span class="symbol-with-logo">${coinLogo(h.symbol)}${symbolLabel(h.symbol, h.id)}</span></td>
+      <td class="mobile-summary" data-label=""><button type="button" class="mobile-expand" aria-expanded="${expanded}" data-summary-label="${escapeHtml(summaryBase)}" aria-label="${escapeHtml(summaryBase)}。詳細を${expanded ? '閉じる' : '開く'}" ${sortMode ? 'disabled' : ''}><span class="mobile-symbol">${coinLogo(sym)}<span class="mobile-symbol-name">${escapeHtml(sym)}</span></span><span title="${escapeHtml(h.exchange || '')}">${escapeHtml(h.exchange || '—')}</span><span>${fQty(h.quantity)}</span><span>${fYield(effYield)}</span></button></td>
+      <td class="left mob-symbol" data-label=""><span class="symbol-with-logo">${coinLogo(h.symbol)}${symbolLabel(h.symbol, h.id)}</span></td>
       <td data-label="現在価格">${priceCell}</td>
       <td class="left" data-label="取引所">${editable(h.exchange||'', h.id, 'exchange')}</td>
       <td data-label="枚数">${editable(fQty(h.quantity), h.id, 'quantity', 'number')}</td>
@@ -1594,9 +1652,10 @@ function render() {
       <td data-label="年間配当">${pd ? fMoney(c.divJpy, c.divUsd) : '---'}</td>
       <td class="left" data-label="計算式">${formulaCell}</td>
       <td class="left" data-label="メモ">${memoCell}</td>
-      <td class="center mob-actions" data-label=""><button type="button" class="btn btn-visibility" onclick="toggleRowHidden(${h.id})" aria-label="${visibilityLabel}" title="${visibilityLabel}" aria-pressed="${hidden}">${visibilityIcon}</button><button type="button" class="btn btn-danger" onclick="deleteRow(${h.id})" aria-label="削除" title="削除">✕</button></td>
+      <td class="mobile-edit-action" data-label=""><button class="btn btn-ghost btn-sm" type="button" onclick="openEditRow(${h.id})">基本情報を編集</button></td>
+      <td class="center mob-actions" data-label="">${actionCell}</td>
     `;
-    attachDrag(tr, h.id);
+    attachMobileActions(tr, h.id);
     tbody.appendChild(tr);
   }
 
@@ -1617,8 +1676,34 @@ function render() {
 // ═══════════════════════════════════════════
 //  ADD MODAL
 // ═══════════════════════════════════════════
-window.openAdd = function() { document.getElementById('add-overlay').classList.add('open'); document.getElementById('a-sym').focus(); };
-window.closeAdd = function() { document.getElementById('add-overlay').classList.remove('open'); };
+window.openAdd = function() {
+  editingRowId = null;
+  document.getElementById('add-modal-title').textContent = '＋ 銘柄を追加';
+  document.getElementById('add-submit-btn').textContent = '追加';
+  ['a-sym','a-ex','a-qty','a-yield','a-note','a-memo','a-cgid'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('add-overlay').classList.add('open');
+  document.getElementById('a-sym').focus();
+};
+window.openEditRow = function(id) {
+  const h = holdings.find(row => row.id === id);
+  if (!h) return;
+  editingRowId = id;
+  document.getElementById('add-modal-title').textContent = '銘柄を編集';
+  document.getElementById('add-submit-btn').textContent = '保存';
+  document.getElementById('a-sym').value = h.symbol;
+  document.getElementById('a-ex').value = h.exchange || '';
+  document.getElementById('a-qty').value = h.quantity;
+  document.getElementById('a-yield').value = h.annualYield ?? '';
+  document.getElementById('a-note').value = h.formula || '';
+  document.getElementById('a-memo').value = h.memo || '';
+  document.getElementById('a-cgid').value = coinIds[h.symbol.toUpperCase()] || '';
+  document.getElementById('add-overlay').classList.add('open');
+  document.getElementById('a-sym').focus();
+};
+window.closeAdd = function() {
+  document.getElementById('add-overlay').classList.remove('open');
+  editingRowId = null;
+};
 window.addRow = function() {
   const sym   = document.getElementById('a-sym').value.trim().toUpperCase();
   const ex    = document.getElementById('a-ex').value.trim();
@@ -1630,9 +1715,12 @@ window.addRow = function() {
   if (!sym) { alert('銘柄シンボルを入力してください'); return; }
   if (cgid) coinIds[sym] = cgid;
   else if (!coinIds[sym]) coinIds[sym] = sym.toLowerCase();
-  holdings.push({ id: nextId++, symbol: sym, exchange: ex, quantity: qty, annualYield: yld, formula: note, memo });
+  const edited = holdings.find(h => h.id === editingRowId);
+  if (edited) Object.assign(edited, { symbol: sym, exchange: ex, quantity: qty, annualYield: yld, formula: note, memo });
+  else holdings.push({ id: nextId++, symbol: sym, exchange: ex, quantity: qty, annualYield: yld, formula: note, memo });
   saveLS(); closeAdd();
   ['a-sym','a-ex','a-qty','a-yield','a-note','a-memo','a-cgid'].forEach(id => document.getElementById(id).value = '');
+  render();
   fetchPrices();
 };
 
