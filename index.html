@@ -130,6 +130,7 @@ header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .table-wrap { padding: 32px 32px 48px; }
 .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; flex-wrap: wrap; gap: 16px; }
 .toolbar-hint { font-size: 11px; color: var(--text-muted); }
+.hint-mobile { display: none; }
 .table-container { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; overflow-x: auto; }
 table { width: max-content; min-width: 100%; table-layout: auto; border-collapse: collapse; }
 th {
@@ -143,6 +144,7 @@ th.center { text-align: center; }
 td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; text-align: right; white-space: nowrap; vertical-align: middle; }
 td.left { text-align: left; }
 td.center { text-align: center; }
+td.mobile-summary, .mobile-holdings-head { display: none; }
 tr:last-child td { border-bottom: none; }
 tr.data-row:hover td { background: var(--hover-bg); }
 
@@ -391,20 +393,43 @@ header { border-bottom: 1px solid var(--border); }
   .toolbar { gap: 14px; }
   .toolbar > .table-heading { display: block; }
   .toolbar-hint { display: block; font-size: 10px; }
-  tbody { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-  tr.data-row { position: relative; min-width: 0; padding: 12px 10px; border-radius: 14px; margin-bottom: 0; }
+  .hint-desktop { display: none; }
+  .mobile-holdings-head, .mobile-expand {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, .9fr) minmax(0, .72fr);
+    align-items: center;
+    gap: 6px;
+  }
+  .mobile-holdings-head { padding: 0 24px 5px 12px; color: var(--text-muted); font-size: 10px; font-weight: 600; }
+  .mobile-holdings-head span:not(:first-child) { text-align: right; }
+  tbody { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  tr.data-row { position: relative; min-width: 0; padding: 0; border-radius: 12px; margin-bottom: 0; overflow: hidden; }
+  tr.data-row:not(.is-expanded) > td:not(.mobile-summary) { display: none; }
   tr.data-row td { min-width: 0; padding: 7px 0; gap: 4px; font-size: 11px; }
+  tr.data-row td.mobile-summary { display: block; padding: 0; }
+  tr.data-row td.mobile-summary::before { display: none; }
+  .mobile-expand { position: relative; width: 100%; min-height: 44px; padding: 9px 24px 9px 12px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
+  .mobile-expand > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mobile-expand > span:not(:first-child) { text-align: right; }
+  .mobile-expand .mobile-symbol { display: flex; align-items: center; gap: 5px; font-weight: 700; }
+  .mobile-expand .mobile-symbol .coin-logo { width: 18px; height: 18px; }
+  .mobile-expand .mobile-symbol-name { overflow: hidden; text-overflow: ellipsis; }
+  .mobile-expand::after { content: ''; position: absolute; right: 11px; top: 50%; width: 6px; height: 6px; border-right: 1.5px solid var(--text-muted); border-bottom: 1.5px solid var(--text-muted); transform: translateY(-70%) rotate(45deg); }
+  tr.data-row.is-expanded .mobile-expand { border-bottom: 1px solid var(--border); }
+  tr.data-row.is-expanded .mobile-expand::after { transform: translateY(-30%) rotate(225deg); }
+  tr.data-row.is-expanded > td:not(.mobile-summary) { margin-left: 12px; margin-right: 12px; }
   tr.data-row td::before { flex: 0 0 42px; min-width: 0; margin-right: 0; font-size: 10px; }
   tr.data-row td:not(.mob-symbol):not(.mob-actions) > span { flex: 1 1 0; min-width: 0; max-width: 100%; overflow-wrap: anywhere; text-align: right; padding-right: 0; border-right: 0; }
   tr.data-row td .price-value { white-space: normal; }
-  tr.data-row td.mob-symbol { padding-right: 54px; padding-bottom: 12px; margin-bottom: 4px; }
+  tr.data-row td.mob-symbol { padding-right: 56px; padding-bottom: 8px; margin-bottom: 4px; }
+  tr.data-row.is-expanded > td.mob-actions { position: absolute; top: 52px; right: 10px; width: auto; margin: 0; padding: 0; border: 0 !important; }
   .form-row { grid-template-columns: 80px minmax(0, 1fr); }
   .form-row input, .form-row textarea { min-width: 0; width: 100%; }
 }
 @media (max-width: 360px) {
   .table-wrap { padding-left: 8px; padding-right: 8px; }
   tbody { gap: 6px; }
-  tr.data-row { padding-left: 6px; padding-right: 6px; }
+  tr.data-row { padding: 0; }
   tr.data-row td { gap: 3px; font-size: 10px; }
   tr.data-row td::before { flex-basis: 36px; font-size: 9px; }
 }
@@ -564,13 +589,14 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
 
 <div class="table-wrap">
   <div class="toolbar">
-    <div class="table-heading"><h2>保有銘柄</h2><p class="toolbar-hint">値をクリックして編集 · 行をドラッグして並べ替え</p></div>
+    <div class="table-heading"><h2>保有銘柄</h2><p class="toolbar-hint hint-desktop">値をクリックして編集 · 行をドラッグして並べ替え</p><p class="toolbar-hint hint-mobile">カードをタップして詳細を表示・編集</p></div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-ghost btn-sm" onclick="openSettings()">コイン設定</button>
       <button class="btn btn-primary" onclick="openAdd()">＋ 銘柄を追加</button>
     </div>
   </div>
   <div class="table-container">
+    <div class="mobile-holdings-head" aria-hidden="true"><span>銘柄</span><span>取引所</span><span>枚数</span><span>年利</span></div>
     <table>
       <thead>
         <tr>
@@ -726,6 +752,7 @@ const DEFAULT_IDS = {
 // ═══════════════════════════════════════════
 let holdings = loadLS('holdings2') || DEFAULT_HOLDINGS.map(h=>({...h}));
 const hiddenRowIds = new Set(); // 一時的な表示状態。Gistやウィジェットには保存しない。
+const expandedRowIds = new Set();
 let coinIds   = loadLS('coinIds')   || {...DEFAULT_IDS};
 // DEFAULT_IDSに新規追加されたシンボルを既存coinIdsに補完
 Object.entries(DEFAULT_IDS).forEach(([sym, id]) => { if (!coinIds[sym]) coinIds[sym] = id; });
@@ -1420,6 +1447,17 @@ window.startEditMemo = function(el, hid) {
   el.replaceWith(ta); ta.focus();
 };
 
+window.toggleRowExpanded = function(id) {
+  const expanded = !expandedRowIds.has(id);
+  if (expanded) expandedRowIds.add(id);
+  else expandedRowIds.delete(id);
+  const row = [...document.querySelectorAll('#tbody tr.data-row')].find(el => Number(el.dataset.hid) === id);
+  if (!row) return;
+  row.classList.toggle('is-expanded', expanded);
+  const button = row.querySelector('.mobile-expand');
+  button.setAttribute('aria-expanded', String(expanded));
+  button.setAttribute('aria-label', `${button.dataset.summaryLabel}。詳細を${expanded ? '閉じる' : '開く'}`);
+};
 window.toggleRowHidden = function(id) {
   if (hiddenRowIds.has(id)) hiddenRowIds.delete(id);
   else hiddenRowIds.add(id);
@@ -1427,6 +1465,7 @@ window.toggleRowHidden = function(id) {
 };
 window.deleteRow = function(id) {
   hiddenRowIds.delete(id);
+  expandedRowIds.delete(id);
   holdings = holdings.filter(h => h.id !== id);
   saveLS(); render();
 };
@@ -1531,7 +1570,9 @@ function render() {
     const memoCell = `<span class="memo-text editable ${h.memo ? '' : 'memo-empty'}" onclick="startEditMemo(this,${h.id})">${h.memo ? memoText.replace(/\n/g,'<br>') : 'メモを入力…'}</span>`;
 
     const tr = document.createElement('tr');
-    tr.className = `data-row${hidden ? ' is-hidden' : ''}`;
+    const expanded = expandedRowIds.has(h.id);
+    tr.className = `data-row${hidden ? ' is-hidden' : ''}${expanded ? ' is-expanded' : ''}`;
+    const summaryBase = `${sym}、取引所 ${h.exchange || 'なし'}、枚数 ${fQty(h.quantity)}、年利 ${fYield(effYield)}`;
     const visibilityLabel = hidden ? '計算に戻す' : '計算から一時的に外す';
     const visibilityIcon = hidden
       ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 5.2A10.7 10.7 0 0 1 12 5c5 0 9.3 4.4 10 7-.3 1.1-1.1 2.3-2.1 3.4"/><path d="M6.2 6.2C4.2 7.5 2.6 9.7 2 12c.7 2.6 5 7 10 7 1.4 0 2.8-.3 4.1-.9"/></svg>'
@@ -1543,6 +1584,7 @@ function render() {
       ? `<span class="price-value">${fMoney(pd.valJpy, pd.valUsd)}</span>`
       : '---';
     tr.innerHTML = `
+      <td class="mobile-summary" data-label=""><button type="button" class="mobile-expand" onclick="toggleRowExpanded(${h.id})" aria-expanded="${expanded}" data-summary-label="${escapeHtml(summaryBase)}" aria-label="${escapeHtml(summaryBase)}。詳細を${expanded ? '閉じる' : '開く'}"><span class="mobile-symbol">${coinLogo(sym)}<span class="mobile-symbol-name">${escapeHtml(sym)}</span></span><span title="${escapeHtml(h.exchange || '')}">${escapeHtml(h.exchange || '—')}</span><span>${fQty(h.quantity)}</span><span>${fYield(effYield)}</span></button></td>
       <td class="left mob-symbol" data-label=""><span class="drag-handle" title="ドラッグで並び替え">⠿</span><span class="symbol-with-logo">${coinLogo(h.symbol)}${symbolLabel(h.symbol, h.id)}</span></td>
       <td data-label="現在価格">${priceCell}</td>
       <td class="left" data-label="取引所">${editable(h.exchange||'', h.id, 'exchange')}</td>
