@@ -17,6 +17,7 @@ catch { document.documentElement.dataset.theme = 'light'; }
   --text-muted: #77817c;
   --accent: #22634d;
   --accent-h: #174c3a;
+  --sync-ok: #22634d;
   --hover-bg: #f7f9f6;
   --edit-ring: #a9c9b8;
   --total-bg: #f0f5f0;
@@ -36,12 +37,22 @@ header {
 header h1 { font-size: 19px; font-weight: 700; letter-spacing: -.025em; }
 .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .rate-pill { background: #f3f5f1; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 11px; color: var(--text-muted); }
-.rate-pill span { color: var(--text); font-weight: 600; margin-left: 6px; }
+.rate-pill #rate-val { color: var(--text); font-weight: 600; margin-left: 6px; }
 .ts { font-size: 11px; color: #64748b; }
 .currency-switch { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid var(--border); border-radius: 9px; background: #f3f5f1; }
 .currency-switch button { border: 0; border-radius: 6px; background: transparent; color: var(--text-muted); padding: 6px 10px; font-family: inherit; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .currency-switch button[aria-pressed="true"] { background: var(--accent); color: #fff; }
 .currency-switch button:focus-visible { outline: 3px solid #a9c9b8; outline-offset: 2px; }
+
+.header-controls, .currency-control, .refresh-control { display: contents; }
+.control-label { display: none; }
+.header-right .rate-pill { order: 0; }
+.header-right .currency-switch { order: 1; }
+.header-right #sync-status { order: 2; }
+.header-right #ts { order: 3; }
+.header-right #theme-btn { order: 4; }
+.header-right #refresh-btn { order: 5; }
+.sync-label { color: var(--text-muted); margin-right: 6px; }
 
 /* ── BUTTONS ── */
 .btn {
@@ -233,14 +244,6 @@ tr.data-row.is-hidden td:not(.mob-actions) { opacity: .45; }
 
 /* ── スマホ ── */
 @media (max-width: 640px) {
-  /* Header */
-  header { padding: 10px 12px; gap: 8px; }
-  header h1 { font-size: 13px; }
-  .header-right { gap: 7px; }
-  .rate-pill { font-size: 11px; padding: 3px 8px; }
-  .btn-ghost #refresh-icon { display: none; }
-  #refresh-btn { justify-content: center; padding: 7px 9px; text-align: center; white-space: nowrap; }
-
   /* Summary cards */
   .summary { padding: 10px 12px 4px; gap: 10px; }
   .card { padding: 12px 12px 10px; }
@@ -370,13 +373,6 @@ header { border-bottom: 1px solid var(--border); }
   .card-value { font-size: 34px; }
 }
 @media (max-width: 640px) {
-  header { padding: 18px 16px; gap: 18px; }
-  header h1 { font-size: 17px; }
-  .brand-mark { width: 36px; height: 36px; border-radius: 10px; }
-  .header-right { width: 100%; gap: 8px; }
-  .rate-pill { font-size: 11px; padding: 7px 9px; margin-right: auto; }
-  #sync-status { order: 5; width: 100%; }
-  #sync-status:empty { display: none; }
   .summary { padding: 18px 14px 0; gap: 16px; }
   .card { padding: 18px 14px 12px; border-radius: 16px; }
   .card-value { font-size: 32px; }
@@ -490,15 +486,27 @@ header { border-bottom: 1px solid var(--border); }
 @media (max-width: 640px) {
   .holding-row-annual { column-gap: 10px; }
 }
+/* Mobile header: brand, grouped controls, then holdings sync status. */
 @media (max-width: 640px) {
-  .header-right { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; width: 100%; align-items: center; gap: 8px; }
-  .currency-switch { grid-column: 1; grid-row: 1; justify-self: start; }
-  #theme-btn { grid-column: 2; grid-row: 1; }
-  #refresh-btn { grid-column: 3; grid-row: 1; }
-  .rate-pill { grid-column: 1 / 3; grid-row: 2; justify-self: start; margin: 0; }
-  #sync-status { grid-column: 1 / -1; grid-row: 3; justify-self: start; width: auto; }
-  #ts { grid-column: 3; grid-row: 2; text-align: center; }
-  #ts.price-alert { grid-column: 1 / -1; grid-row: 4; text-align: left; }
+  header { display: grid; grid-template-columns: minmax(0, 1fr) 36px; grid-template-areas: "brand theme" "controls controls" "sync sync"; align-items: center; gap: 12px 10px; padding: 16px 14px 14px; }
+  header .brand { grid-area: brand; min-width: 0; gap: 9px; }
+  header h1 { font-size: clamp(14px, 4vw, 17px); line-height: 1.4; white-space: nowrap; }
+  header .brand-mark { width: 32px; height: 32px; border-radius: 9px; }
+  .header-right { display: contents; }
+  .header-right #theme-btn { grid-area: theme; width: 36px; height: 36px; padding: 0; justify-content: center; border-radius: 10px; }
+  .header-controls { grid-area: controls; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 12px; background: var(--hover-bg); border: 1px solid var(--border); border-radius: 14px; }
+  .currency-control, .refresh-control { display: flex; flex-direction: column; min-width: 0; gap: 7px; }
+  .control-label { display: block; order: 0; color: var(--text-muted); font-size: 10px; font-weight: 600; letter-spacing: .04em; }
+  .header-right .currency-switch { order: 1; display: flex; width: 100%; height: 40px; padding: 3px; border-radius: 10px; }
+  .currency-switch button { flex: 1; min-width: 0; padding: 0 5px; font-size: 12px; border-radius: 7px; }
+  .header-right #refresh-btn { order: 1; width: 100%; height: 40px; justify-content: center; padding: 0 6px; border-radius: 10px; background: var(--accent); border-color: var(--accent); color: #fff; font-size: 12px; white-space: nowrap; }
+  #refresh-icon { display: inline-flex; width: 14px; align-items: center; justify-content: center; font-size: 17px; }
+  .header-controls .currency-control .rate-pill { order: 2; background: transparent; border: 0; padding: 0; margin: 0; font-size: 10px; line-height: 1.5; text-align: center; white-space: nowrap; }
+  .rate-pill #rate-val { margin-left: 3px; }
+  .header-right #ts { order: 2; min-width: 0; color: var(--text-muted); font-size: 10px; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }
+  .header-right #ts.price-alert { text-align: left; }
+  .header-right #sync-status { grid-area: sync; min-width: 0; width: auto; font-size: 10px; line-height: 1.5; text-align: right; overflow-wrap: anywhere; }
+  #sync-status:empty { display: none; }
 }
 /* Dark theme */
 #theme-btn .icon-sun { display: none; }
@@ -508,6 +516,7 @@ html[data-theme="dark"] { color-scheme: dark;
   --bg: #101914; --surface: #19251e; --border: #35483b;
   --text: #eaf2eb; --text-muted: #a8b9ac;
   --accent: #317657; --accent-h: #398a66;
+  --sync-ok: #9addb2;
   --hover-bg: #24372b; --edit-ring: #6eaa84;
 }
 html[data-theme="dark"] .rate-pill,
@@ -545,19 +554,27 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
 <header>
   <div class="brand"><img class="brand-mark" src="assets/header-icon.png" alt="" aria-hidden="true"><h1>暗号資産ダッシュボード</h1></div>
   <div class="header-right">
-    <div class="rate-pill">USD / JPY <span id="rate-val">---</span></div>
-    <div class="currency-switch" role="group" aria-label="表示通貨">
-      <button id="currency-jpy" type="button" onclick="setCurrency('JPY')" aria-pressed="true">¥ 円</button>
-      <button id="currency-usd" type="button" onclick="setCurrency('USD')" aria-pressed="false">$ ドル</button>
+    <div class="header-controls">
+      <div class="currency-control">
+        <span class="control-label">表示通貨</span>
+        <div class="currency-switch" role="group" aria-label="表示通貨">
+          <button id="currency-jpy" type="button" onclick="setCurrency('JPY')" aria-pressed="true">¥ 円</button>
+          <button id="currency-usd" type="button" onclick="setCurrency('USD')" aria-pressed="false">$ ドル</button>
+        </div>
+        <div class="rate-pill">1 USD = <span id="rate-val">---</span> 円</div>
+      </div>
+      <div class="refresh-control">
+        <span class="control-label">価格データ</span>
+        <button class="btn btn-ghost" id="refresh-btn" type="button" onclick="fetchPrices(true)">
+          <span id="refresh-icon" aria-hidden="true">↺</span><span>価格を更新</span>
+        </button>
+        <div class="ts" id="ts" role="status" aria-live="polite">価格: 未取得</div>
+      </div>
     </div>
-    <div class="ts" id="sync-status"></div>
-    <div class="ts" id="ts">未取得</div>
+    <div class="ts" id="sync-status" role="status" aria-live="polite"></div>
     <button class="btn btn-ghost" id="theme-btn" type="button" onclick="toggleTheme()" title="ダークモードに切り替え" aria-label="ダークモードに切り替え" aria-pressed="false">
       <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5 8.5 8.5 0 1 0 20.5 14.5Z"/></svg>
       <svg class="icon-sun" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42"/></svg>
-    </button>
-    <button class="btn btn-ghost" id="refresh-btn" onclick="fetchPrices(true)">
-      <span id="refresh-icon">↺</span><span>価格を更新</span>
     </button>
   </div>
 </header>
@@ -1713,10 +1730,10 @@ function setSyncStatus(status, msg = '') {
   let html = '', color = '#64748b';
   if (status === 'pending')  { html = '☁ 同期待ち…';  color = '#94a3b8'; }
   if (status === 'syncing')  { html = '<span class="spin" style="border-color:#475569;border-top-color:#93c5fd;"></span> 同期中…'; color = '#94a3b8'; }
-  if (status === 'ok')       { html = '☁ 同期済み ' + new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); color = '#10b981'; }
+  if (status === 'ok')       { html = '☁ 同期済み ' + new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}); color = 'var(--sync-ok)'; }
   if (status === 'error')    { html = '⚠ 同期失敗: ' + msg; color = '#ef4444'; }
   if (status === 'none')     { html = ''; }
-  if (el)  { el.innerHTML = html; el.style.color = color; }
+  if (el)  { el.innerHTML = html ? '<span class="sync-label">保有データ</span>' + html : ''; el.style.color = color; }
   if (mel) { mel.innerHTML = html; mel.style.color = color; }
 }
 
