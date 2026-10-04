@@ -146,7 +146,7 @@ th.center { text-align: center; }
 td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; text-align: right; white-space: nowrap; vertical-align: middle; }
 td.left { text-align: left; }
 td.center { text-align: center; }
-td.mobile-summary, td.mobile-edit-action, .mobile-holdings-head { display: none; }
+td.mobile-summary, td.mobile-card-actions, .mobile-holdings-head { display: none; }
 tr:last-child td { border-bottom: none; }
 tr.data-row:hover td { background: var(--hover-bg); }
 
@@ -200,9 +200,6 @@ tr.data-row.is-hidden td:not(.mob-actions) { opacity: .45; }
 .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9000; align-items: center; justify-content: center; }
 .overlay.open { display: flex; }
 .modal { background: #fff; border-radius: 12px; padding: 24px; width: 480px; max-width: 95vw; max-height: 88vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
-.row-actions-modal { width: 320px; }
-.row-actions-modal .btn { display: flex; width: 100%; justify-content: flex-start; margin-top: 8px; }
-.row-actions-modal .btn-danger { color: #dc2626; border-color: var(--border); }
 .modal h2 { font-size: 15px; font-weight: 700; margin-bottom: 18px; }
 .form-row { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 8px; margin-bottom: 10px; }
 .form-row label { font-size: 12px; color: var(--text-muted); font-weight: 600; }
@@ -410,7 +407,7 @@ header { border-bottom: 1px solid var(--border); }
   tr.data-row td { min-width: 0; padding: 7px 0; gap: 4px; font-size: 11px; }
   tr.data-row td.mobile-summary { display: block; padding: 0; }
   tr.data-row td.mobile-summary::before { display: none; }
-  .mobile-expand { position: relative; width: 100%; min-height: 44px; padding: 9px 24px 9px 12px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; touch-action: pan-y; }
+  .mobile-expand { position: relative; width: 100%; min-height: 44px; padding: 9px 24px 9px 12px; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
   .mobile-expand:disabled { cursor: default; }
   .mobile-expand > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .mobile-expand > span:not(:first-child) { text-align: right; }
@@ -429,9 +426,9 @@ header { border-bottom: 1px solid var(--border); }
   tr.data-row.is-expanded > td[data-label="枚数"],
   tr.data-row.is-expanded > td[data-label="年利"],
   tr.data-row.is-expanded > td.mob-actions { display: none; }
-  tr.data-row.is-expanded > td.mobile-edit-action { display: flex; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--border) !important; }
-  .row-actions-overlay { align-items: flex-end; }
-  .row-actions-modal { width: 100%; max-width: none; border-radius: 18px 18px 0 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
+  tr.data-row.is-expanded > td.mobile-card-actions { display: flex; gap: 8px; padding-top: 8px; border-top: 1px solid var(--border) !important; }
+  .mobile-card-actions .btn { flex: 1; justify-content: center; min-width: 0; padding: 9px 4px; font-size: 11px; }
+  .mobile-card-actions .mobile-delete-btn { color: #dc2626; }
   .form-row { grid-template-columns: 80px minmax(0, 1fr); }
   .form-row input, .form-row textarea { min-width: 0; width: 100%; }
 }
@@ -518,6 +515,7 @@ html[data-theme="dark"] .currency-switch,
 html[data-theme="dark"] th { background: #223127; }
 html[data-theme="dark"] .btn-ghost { background: #223127; color: var(--text); }
 html[data-theme="dark"] .btn-ghost:hover { background: #2c4132; color: #b6e2c0; border-color: #62856c; }
+html[data-theme="dark"] .mobile-card-actions .mobile-delete-btn { color: #ff9292; }
 html[data-theme="dark"] .btn-danger:hover { background: #422b2b; }
 html[data-theme="dark"] tr.data-row.is-hidden { background: #121d16; }
 html[data-theme="dark"] .card-annual { background: #1b2921; }
@@ -597,7 +595,7 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
 
 <div class="table-wrap">
   <div class="toolbar">
-    <div class="table-heading"><h2>保有銘柄</h2><p class="toolbar-hint hint-desktop">値をクリックして編集</p><p class="toolbar-hint hint-mobile">カードをタップして詳細を表示 · 長押しで操作</p></div>
+    <div class="table-heading"><h2>保有銘柄</h2><p class="toolbar-hint hint-desktop">値をクリックして編集</p><p class="toolbar-hint hint-mobile">カードをタップして詳細を表示・編集</p></div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-primary" onclick="openAdd()">＋ 銘柄を追加</button>
       <button class="btn btn-ghost btn-sm" onclick="openSettings()">コイン設定</button>
@@ -623,16 +621,6 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
       </thead>
       <tbody id="tbody"></tbody>
     </table>
-  </div>
-</div>
-
-<!-- MOBILE ROW ACTIONS -->
-<div class="overlay row-actions-overlay" id="row-actions-overlay" onclick="if(event.target===this)closeRowActions()">
-  <div class="modal row-actions-modal" role="dialog" aria-modal="true" aria-labelledby="row-actions-title">
-    <h2 id="row-actions-title"></h2>
-    <button class="btn btn-ghost" id="row-hide-action" type="button" onclick="performRowAction('hide')"></button>
-    <button class="btn btn-danger" type="button" onclick="performRowAction('delete')">削除</button>
-    <button class="btn btn-ghost" type="button" onclick="closeRowActions()">キャンセル</button>
   </div>
 </div>
 
@@ -793,7 +781,6 @@ const PRICE_FRESH_MS = 5 * 60 * 1000;
 let displayCurrency = localStorage.getItem('displayCurrency') === 'USD' ? 'USD' : 'JPY';
 let nextId    = Math.max(0, ...holdings.map(h=>h.id)) + 1;
 let sortMode  = false;
-let rowActionId = null;
 let editingRowId = null;
 let ghToken   = localStorage.getItem('ghToken')  || '';
 let ghGistId  = localStorage.getItem('ghGistId') || '';
@@ -1491,19 +1478,23 @@ window.deleteRow = function(id) {
   holdings = holdings.filter(h => h.id !== id);
   saveLS(); render();
 };
+window.confirmDeleteRow = function(id) {
+  const holding = holdings.find(h => h.id === id);
+  if (holding && confirm(`${holding.symbol.toUpperCase()}を削除しますか？`)) deleteRow(id);
+};
 
 // ═══════════════════════════════════════════
-//  ROW ACTIONS & REORDERING
+//  REORDERING
 // ═══════════════════════════════════════════
 window.toggleSortMode = function() {
   sortMode = !sortMode;
-  if (sortMode) { expandedRowIds.clear(); closeRowActions(); }
+  if (sortMode) expandedRowIds.clear();
   const button = document.getElementById('sort-btn');
   button.textContent = sortMode ? '完了' : '並び替え';
   button.setAttribute('aria-pressed', String(sortMode));
   document.querySelector('.hint-mobile').textContent = sortMode
     ? '上下ボタンで並び替え、完了を押して終了'
-    : 'カードをタップして詳細を表示 · 長押しで操作';
+    : 'カードをタップして詳細を表示・編集';
   document.querySelector('.hint-desktop').textContent = sortMode
     ? '上下ボタンで並び替え、完了を押して終了' : '値をクリックして編集';
   render();
@@ -1516,58 +1507,9 @@ window.moveRow = function(id, direction) {
   saveLS();
   render();
 };
-window.closeRowActions = function() {
-  document.getElementById('row-actions-overlay').classList.remove('open');
-  rowActionId = null;
-};
-window.showRowActions = function(id) {
-  if (sortMode || !window.matchMedia('(max-width: 640px)').matches) return;
-  const holding = holdings.find(h => h.id === id);
-  if (!holding) return;
-  rowActionId = id;
-  document.getElementById('row-actions-title').textContent = holding.symbol.toUpperCase();
-  document.getElementById('row-hide-action').textContent = hiddenRowIds.has(id)
-    ? '表示する（計算に戻す）' : '非表示（計算から除外）';
-  document.getElementById('row-actions-overlay').classList.add('open');
-};
-window.performRowAction = function(action) {
-  const id = rowActionId;
-  closeRowActions();
-  if (id == null) return;
-  if (action === 'hide') toggleRowHidden(id);
-  if (action === 'delete') deleteRow(id);
-};
 function attachMobileActions(tr, hid) {
   tr.dataset.hid = hid;
-  const button = tr.querySelector('.mobile-expand');
-  let timer = null, startX = 0, startY = 0, longPressedAt = 0;
-  const cancel = () => { if (timer) clearTimeout(timer); timer = null; };
-  tr.addEventListener('pointerdown', e => {
-    if (sortMode || !window.matchMedia('(max-width: 640px)').matches || e.button !== 0
-        || e.target.closest('.editable, input, textarea, .mob-actions, .mobile-edit-action')) return;
-    startX = e.clientX; startY = e.clientY;
-    timer = setTimeout(() => {
-      timer = null;
-      longPressedAt = Date.now();
-      showRowActions(hid);
-    }, 550);
-  });
-  tr.addEventListener('pointermove', e => {
-    if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancel();
-  });
-  tr.addEventListener('pointerup', cancel);
-  tr.addEventListener('pointercancel', cancel);
-  button.addEventListener('click', e => {
-    if (sortMode || Date.now() - longPressedAt < 900) { e.preventDefault(); return; }
-    toggleRowExpanded(hid);
-  });
-  tr.addEventListener('contextmenu', e => {
-    if (sortMode || !window.matchMedia('(max-width: 640px)').matches
-        || e.target.closest('.editable, input, textarea, .mob-actions, .mobile-edit-action')) return;
-    e.preventDefault(); cancel();
-    longPressedAt = Date.now();
-    showRowActions(hid);
-  });
+  tr.querySelector('.mobile-expand').addEventListener('click', () => toggleRowExpanded(hid));
 }
 
 // ═══════════════════════════════════════════
@@ -1652,7 +1594,7 @@ function render() {
       <td data-label="年間配当">${pd ? fMoney(c.divJpy, c.divUsd) : '---'}</td>
       <td class="left" data-label="計算式">${formulaCell}</td>
       <td class="left" data-label="メモ">${memoCell}</td>
-      <td class="mobile-edit-action" data-label=""><button class="btn btn-ghost btn-sm" type="button" onclick="openEditRow(${h.id})">基本情報を編集</button></td>
+      <td class="mobile-card-actions" data-label=""><button class="btn btn-ghost btn-sm" type="button" onclick="openEditRow(${h.id})">編集</button><button class="btn btn-ghost btn-sm" type="button" onclick="toggleRowHidden(${h.id})" aria-pressed="${hidden}" aria-label="${visibilityLabel}">${hidden ? '表示' : '非表示'}</button><button class="btn btn-ghost btn-sm mobile-delete-btn" type="button" onclick="confirmDeleteRow(${h.id})">削除</button></td>
       <td class="center mob-actions" data-label="">${actionCell}</td>
     `;
     attachMobileActions(tr, h.id);
