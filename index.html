@@ -480,7 +480,7 @@ header { border-bottom: 1px solid var(--border); }
 }
 .holding-row-annual .annual-symbol { grid-area: symbol; justify-self: start; }
 .holding-row-annual .annual-amount { grid-area: amount; text-align: right; }
-.holding-row-annual .annual-yield { grid-area: yield; font-size: 12px; font-weight: 600; color: var(--text); text-align: right; white-space: nowrap; }
+.holding-row-annual .annual-yield { grid-area: yield; font-size: 14px; font-weight: 600; color: var(--yield-color); text-align: right; white-space: nowrap; }
 .holding-row-annual.is-compact {
   grid-template-areas: "symbol yield" "amount amount";
   grid-template-columns: minmax(0, 1fr) var(--annual-yield-width, max-content);
@@ -550,6 +550,19 @@ html[data-theme="dark"] .guide-note code { background: #34483a; color: var(--tex
 html[data-theme="dark"] .pnl-pos { color: #72d99a; }
 html[data-theme="dark"] .pnl-neg { color: #ff9292; }
 html[data-theme="dark"] .map-item input[readonly] { background: #26362c !important; color: var(--text-muted) !important; }
+
+/* アプリ専用の操作。ページ末尾までスクロールして使用する。 */
+#app-widget-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; max-width: 1680px; margin: 0 auto; padding: 0 32px 48px; }
+#app-widget-settings a, #app-widget-settings button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); font-family: inherit; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; }
+#app-widget-settings a:hover, #app-widget-settings button:hover { background: var(--hover-bg); }
+#app-widget-settings a:focus-visible, #app-widget-settings button:focus-visible { outline: 2px solid var(--edit-ring); outline-offset: 2px; }
+@media (max-width: 640px) {
+  #app-widget-settings { gap: 10px; padding: 0 14px 36px; }
+  #app-widget-settings a, #app-widget-settings button { padding: 14px 8px; font-size: 12px; }
+}
+@media (max-width: 360px) {
+  #app-widget-settings { padding-left: 8px; padding-right: 8px; }
+}
 </style>
 </head>
 <body>
@@ -1903,7 +1916,19 @@ function toggleTheme() {
 // ═══════════════════════════════════════════
 //  INIT
 // ═══════════════════════════════════════════
+function initAppControls() {
+  if (!navigator.userAgent.includes('CryptoDashboardApp')) return;
+  if (document.getElementById('app-widget-settings')) return;
+  const section = document.createElement('section');
+  section.id = 'app-widget-settings';
+  section.setAttribute('aria-label', 'アプリの操作');
+  section.innerHTML = '<a href="cryptodashboard://widget-settings"><span aria-hidden="true">⚙</span><span>ウィジェット設定</span></a>'
+    + '<button type="button" id="app-reload-btn"><span aria-hidden="true">↻</span><span>表示を更新</span></button>';
+  section.querySelector('#app-reload-btn').addEventListener('click', () => window.location.reload());
+  document.body.appendChild(section);
+}
 (async function init() {
+  initAppControls();
   updateThemeButton();
   restorePriceCache();
   render();
