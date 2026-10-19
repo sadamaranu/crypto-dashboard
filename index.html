@@ -556,9 +556,18 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
 #app-widget-settings a, #app-widget-settings button { display: flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); font-family: inherit; font-size: 13px; font-weight: 600; text-decoration: none; cursor: pointer; }
 #app-widget-settings a:hover, #app-widget-settings button:hover { background: var(--hover-bg); }
 #app-widget-settings a:focus-visible, #app-widget-settings button:focus-visible { outline: 2px solid var(--edit-ring); outline-offset: 2px; }
+.card-total .total-overview { display: grid; grid-template-columns: minmax(0, 1fr) clamp(88px, 12vw, 156px); align-items: start; gap: 16px; }
+.total-overview #c-val { white-space: nowrap; }
+.portfolio-trend { min-width: 0; padding-top: 2px; }
+.portfolio-trend svg { display: block; width: 100%; height: 52px; overflow: visible; }
+.trend-caption { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; margin-top: 6px; font-size: 10px; white-space: nowrap; }
+.trend-caption > span:first-child { color: var(--text-muted); font-weight: 400; }
+.trend-status { display: flex; min-height: 70px; align-items: center; justify-content: center; color: var(--text-muted); font-size: 10px; text-align: center; line-height: 1.6; }
 @media (max-width: 640px) {
   #app-widget-settings { gap: 10px; padding: 0 14px 36px; }
   #app-widget-settings a, #app-widget-settings button { padding: 14px 8px; font-size: 12px; }
+  .card-total .total-overview { grid-template-columns: minmax(0, 1fr) clamp(88px, 25vw, 130px); gap: 10px; }
+  .total-overview #c-val { font-size: clamp(22px, 7vw, 32px); }
 }
 @media (max-width: 360px) {
   #app-widget-settings { padding-left: 8px; padding-right: 8px; }
@@ -599,11 +608,12 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
   <!-- 左：評価額合計 + 銘柄別詳細 -->
   <div class="card card-total">
     <div class="card-label">評価額合計</div>
-    <div class="card-body" style="align-items:flex-start;">
+    <div class="card-body total-overview">
       <div class="card-nums">
         <div class="card-value" id="c-val">¥ ---</div>
         <div class="pnl-row" id="c-val-pnl"></div>
       </div>
+      <div class="portfolio-trend" id="portfolio-trend"><div class="trend-status">履歴を取得中…</div></div>
     </div>
     <div class="holdings-list" id="holdings-detail"></div>
   </div>
@@ -811,6 +821,11 @@ let nativePriceReady;
 const nativePricePromise = new Promise(resolve => { nativePriceReady = resolve; });
 const PRICE_CACHE_KEY = 'dashboardPriceCacheV1';
 const PRICE_FRESH_MS = 5 * 60 * 1000;
+const TREND_CACHE_KEY = 'dashboardTrendCacheV1';
+const TREND_FRESH_MS = 60 * 60 * 1000;
+const TREND_RETRY_MS = 15 * 60 * 1000;
+let trendCache = loadLS(TREND_CACHE_KEY) || {};
+let marketFetchInFlight = false;
 let displayCurrency = localStorage.getItem('displayCurrency') === 'USD' ? 'USD' : 'JPY';
 let nextId    = Math.max(0, ...holdings.map(h=>h.id)) + 1;
 let sortMode  = false;
@@ -978,7 +993,7 @@ async function fetchPrices(force = false) {
     btn.disabled = false; ic.textContent = '↺'; return;
   }
 
-  fetchCoinLogos(ids);
+  fetchCoinMarketData(ids);
   if (!force && priceFetchedAt && Date.now() - priceFetchedAt < PRICE_FRESH_MS
       && validPriceCache(currentPriceCache())) {
     btn.disabled = false; ic.textContent = '↺';
@@ -1047,27 +1062,114 @@ async function fetchPrices(force = false) {
   render();
 }
 
-async function fetchCoinLogos(ids) {
+async function fetchCoinMarketData(ids) {
+  ids = [...new Set(ids)].sort();
+  const signature = ids.join(',');
   const refreshAll = Date.now() - coinLogosUpdatedAt > 7 * 24 * 60 * 60 * 1000;
   const needed = refreshAll ? ids : ids.filter(id => !(id in coinLogos));
-  if (!needed.length) return;
+  const needTrend = ids.some(id => !validTrendSeries(trendCache.series?.[id])
+    || Date.now() - trendCache.series[id].fetchedAt >= TREND_FRESH_MS);
+  if ((!needed.length && !needTrend) || marketFetchInFlight) return;
+  if (trendCache.attemptedIds === signature && Date.now() - trendCache.attemptedAt < TREND_RETRY_MS) return;
+  marketFetchInFlight = true;
+  trendCache.attemptedAt = Date.now();
+  trendCache.attemptedIds = signature;
+  saveTrendCache();
+  renderPortfolioTrend();
   try {
-    const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(needed.join(','))}&per_page=250&page=1`;
-    const response = await fetch(url);
-    if (!response.ok) return;
-    const data = await response.json();
-    const images = new Map(data.map(coin => [coin.id, coin.image]));
-    for (const id of needed) {
-      const image = images.get(id) || '';
-      coinLogos[id] = /^https:\/\/coin-images\.coingecko\.com\//.test(image) ? image : '';
+    const data = [];
+    for (let i = 0; i < ids.length; i += 250) {
+      const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(ids.slice(i, i + 250).join(','))}&sparkline=true&per_page=250&page=1`;
+      const response = await fetch(url, {signal: AbortSignal.timeout(15000)});
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const batch = await response.json();
+      if (!Array.isArray(batch)) throw new Error('履歴データがありません');
+      data.push(...batch);
     }
-    coinLogosUpdatedAt = Date.now();
+    const fetchedAt = Date.now();
+    const series = {};
+    for (const coin of data) {
+      if (!ids.includes(coin.id)) continue;
+      if (needed.includes(coin.id)) {
+        coinLogos[coin.id] = /^https:\/\/coin-images\.coingecko\.com\//.test(coin.image || '') ? coin.image : '';
+      }
+      const entry = {prices: coin.sparkline_in_7d?.price, fetchedAt};
+      if (validTrendSeries(entry)) series[coin.id] = entry;
+    }
+    trendCache.series = {...trendCache.series, ...series};
+    saveTrendCache();
+    if (needed.length) coinLogosUpdatedAt = fetchedAt;
     try {
       localStorage.setItem('coinLogos', JSON.stringify(coinLogos));
       localStorage.setItem('coinLogosUpdatedAt', String(coinLogosUpdatedAt));
     } catch(e) {}
+  } catch(e) {
+    // 保存済みの履歴を維持し、取得できない銘柄は合計から勝手に除外しない。
+  } finally {
+    marketFetchInFlight = false;
     render();
-  } catch(e) {}
+  }
+}
+
+function saveTrendCache() {
+  try { localStorage.setItem(TREND_CACHE_KEY, JSON.stringify(trendCache)); } catch(e) {}
+}
+function validTrendSeries(entry) {
+  return entry && Number.isFinite(entry.fetchedAt) && entry.fetchedAt > 0
+    && entry.fetchedAt <= Date.now() + 60000
+    && Array.isArray(entry.prices) && entry.prices.length >= 160 && entry.prices.length <= 200
+    && entry.prices.every(p => Number.isFinite(p) && p > 0);
+}
+
+function renderPortfolioTrend() {
+  const container = document.getElementById('portfolio-trend');
+  const quantities = new Map();
+  let missingId = false;
+  for (const h of holdings) {
+    if (hiddenRowIds.has(h.id) || h.quantity === 0) continue;
+    const id = coinIds[h.symbol.toUpperCase()];
+    if (!id || !Number.isFinite(h.quantity)) { missingId = true; continue; }
+    quantities.set(id, (quantities.get(id) || 0) + h.quantity);
+  }
+  const showStatus = message => {
+    container.removeAttribute('title');
+    container.innerHTML = `<div class="trend-status" role="status">${message}</div>`;
+  };
+  if (!quantities.size && !missingId) { showStatus('7日間<br>対象銘柄なし'); return; }
+  const entries = [...quantities].map(([id, quantity]) => ({quantity, entry: trendCache.series?.[id]}));
+  if (missingId || entries.some(({entry}) => !validTrendSeries(entry)
+      || Date.now() - entry.fetchedAt > 24 * TREND_FRESH_MS)) {
+    showStatus(marketFetchInFlight ? '7日間<br>履歴を取得中…' : '7日間<br>履歴を取得できません');
+    return;
+  }
+  if (displayCurrency === 'JPY' && !(usdJpy > 0)) { showStatus('7日間<br>為替の取得待ち'); return; }
+  // CoinGeckoの時間別USD履歴を末尾で揃え、現在の保有数量で合算する。
+  const count = Math.min(168, ...entries.map(({entry}) => entry.prices.length));
+  const rate = displayCurrency === 'JPY' ? usdJpy : 1;
+  const values = Array.from({length: count}, (_, i) => entries.reduce((sum, {quantity, entry}) =>
+    sum + entry.prices[entry.prices.length - count + i] * quantity * rate, 0));
+  if (values.some(v => !Number.isFinite(v) || v <= 0)) { showStatus('7日間<br>履歴を取得できません'); return; }
+  const first = values[0], last = values[values.length - 1];
+  const pct = (last / first - 1) * 100;
+  const cls = pct >= 0 ? 'pnl-pos' : 'pnl-neg';
+  const change = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
+  const min = Math.min(...values), max = Math.max(...values);
+  const range = max - min;
+  const points = values.map((v, i) => [3 + i / (count - 1) * 154, range ? 47 - (v - min) / range * 42 : 26]);
+  const path = points.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
+  const [endX, endY] = points[points.length - 1];
+  const oldest = Math.min(...entries.map(({entry}) => entry.fetchedAt));
+  const stale = Date.now() - oldest >= TREND_FRESH_MS;
+  const note = '現在の保有数量で計算した7日間の評価額推移。'
+    + (displayCurrency === 'JPY' ? '円換算は現在の為替を使用。' : '')
+    + `履歴取得: ${priceTimeLabel(oldest)}。`;
+  container.title = note;
+  container.innerHTML = `<svg viewBox="0 0 160 52" preserveAspectRatio="none" class="${cls}" role="img" aria-label="7日間の評価額推移 ${change}">
+    <title>${escapeHtml(note)}</title>
+    <path d="${path} L157,52 L3,52 Z" fill="currentColor" opacity=".09"/>
+    <path d="${path}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
+    <circle cx="${endX}" cy="${endY}" r="2.4" fill="currentColor"/>
+    </svg><div class="trend-caption"><span>${stale ? '7日間・前回' : '7日間'}</span><span class="${cls}">${change}</span></div>`;
 }
 
 // ═══════════════════════════════════════════
@@ -1646,6 +1748,7 @@ function render() {
     ['c-val-pnl', 'c-annual-pnl', 'c-annual-monthly', 'holdings-detail', 'annual-detail']
       .forEach(id => { document.getElementById(id).textContent = ''; });
   }
+  renderPortfolioTrend();
 }
 
 // ═══════════════════════════════════════════
