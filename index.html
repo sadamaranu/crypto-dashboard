@@ -825,6 +825,7 @@ const PRICE_FRESH_MS = 5 * 60 * 1000;
 const TREND_CACHE_KEY = 'dashboardTrendCacheV1';
 const TREND_FRESH_MS = 60 * 60 * 1000;
 const TREND_RETRY_MS = 15 * 60 * 1000;
+const MONTHLY_TREND_FRESH_MS = 6 * TREND_FRESH_MS;
 let trendCache = loadLS(TREND_CACHE_KEY) || {};
 let marketFetchInFlight = false;
 const monthlyTrendInFlight = new Set();
@@ -1137,31 +1138,74 @@ function validMonthlyTrend(entry) {
 }
 
 async function fetchMonthlyTrend() {
+  if (trendCache.monthlyFetchVersion !== 2) {
+    trendCache.monthlyFetchVersion = 2;
+    trendCache.monthlyAttempts = {};
+    trendCache.monthlyErrors = {};
+    trendCache.monthlyBlockedUntil = 0;
+    trendCache.monthlyNextRequestAt = 0;
+    saveTrendCache();
+  }
+  if (Date.now() < (trendCache.monthlyBlockedUntil || 0)) return;
   const ids = [...new Set(holdings.filter(h => !hiddenRowIds.has(h.id) && h.quantity !== 0)
     .map(h => coinIds[h.symbol.toUpperCase()]).filter(Boolean))];
   const needed = ids.filter(id => !monthlyTrendInFlight.has(id)
     && (!validMonthlyTrend(trendCache.monthly?.[id])
-      || Date.now() - trendCache.monthly[id].fetchedAt >= TREND_FRESH_MS)
+      || Date.now() - trendCache.monthly[id].fetchedAt >= MONTHLY_TREND_FRESH_MS)
     && !(Date.now() - trendCache.monthlyAttempts?.[id] < TREND_RETRY_MS));
   if (!needed.length) return;
   trendCache.monthlyAttempts = {...trendCache.monthlyAttempts};
-  needed.forEach(id => { monthlyTrendInFlight.add(id); trendCache.monthlyAttempts[id] = Date.now(); });
-  saveTrendCache();
-  // 30日分は選択時のみ、銘柄ごとに順番に取得する。
+  needed.forEach(id => monthlyTrendInFlight.add(id));
+  const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const recordError = (id, kind, status = 0) => {
+    trendCache.monthlyErrors = {...trendCache.monthlyErrors, [id]: {kind, status, at: Date.now()}};
+    saveTrendCache();
+  };
+  // キーなしAPIの連続アクセスを避け、日足は6時間再利用する。
   try {
     for (const id of needed) {
       try {
+        const delay = Math.max(0, (trendCache.monthlyNextRequestAt || 0) - Date.now());
+        if (delay) await wait(delay);
+        if (trendPeriod !== 30 || !holdings.some(h => !hiddenRowIds.has(h.id)
+            && h.quantity !== 0 && coinIds[h.symbol.toUpperCase()] === id)) continue;
         const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=30&interval=daily`;
-        const response = await fetch(url, {signal: AbortSignal.timeout(15000)});
-        if ([401, 403, 429].includes(response.status)) return;
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        let response;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          if (trendPeriod !== 30) return;
+          trendCache.monthlyAttempts[id] = Date.now();
+          trendCache.monthlyNextRequestAt = Date.now() + 20000;
+          saveTrendCache();
+          response = await fetch(url, {signal: AbortSignal.timeout(15000)});
+          if (response.status !== 429) break;
+          recordError(id, 'http', 429);
+          const retry = response.headers.get('Retry-After');
+          const retryMs = /^\d+$/.test(retry || '') ? Number(retry) * 1000 : Date.parse(retry) - Date.now();
+          const pause = Number.isFinite(retryMs) ? Math.max(60000, Math.min(TREND_RETRY_MS, retryMs)) : 60000;
+          trendCache.monthlyBlockedUntil = Date.now() + (attempt ? Math.max(pause, TREND_RETRY_MS) : pause);
+          saveTrendCache();
+          renderPortfolioTrend();
+          if (attempt) return;
+          await wait(pause);
+        }
+        if (!response.ok) {
+          recordError(id, 'http', response.status);
+          if ([401, 403].includes(response.status)) {
+            trendCache.monthlyBlockedUntil = Date.now() + TREND_RETRY_MS;
+            saveTrendCache();
+            return;
+          }
+          continue;
+        }
         const data = await response.json();
         const entry = {prices: data.prices, fetchedAt: Date.now()};
         if (validMonthlyTrend(entry)) {
           trendCache.monthly = {...trendCache.monthly, [id]: entry};
+          delete trendCache.monthlyErrors?.[id];
           saveTrendCache();
-        }
-      } catch(e) { /* 保存済みの履歴を維持する。 */ }
+        } else recordError(id, 'data');
+      } catch(e) { recordError(id, e.name === 'TimeoutError' ? 'timeout' : 'network'); }
+      renderPortfolioTrend();
     }
   } finally {
     needed.forEach(id => monthlyTrendInFlight.delete(id));
@@ -1213,13 +1257,32 @@ function renderPortfolioTrend() {
     container.innerHTML = `<span class="trend-status" role="status">${label} ↻<br>${message}</span>`;
   };
   if (!quantities.size && !missingId) { showStatus('対象銘柄なし'); return; }
-  const entries = [...quantities].map(([id, quantity]) => ({quantity,
+  const entries = [...quantities].map(([id, quantity]) => ({id, quantity,
     entry: trendPeriod === 30 ? trendCache.monthly?.[id] : trendCache.series?.[id]}));
   const validEntry = trendPeriod === 30 ? validMonthlyTrend : validTrendSeries;
   if (missingId || entries.some(({entry}) => !validEntry(entry)
       || Date.now() - entry.fetchedAt > 24 * TREND_FRESH_MS)) {
     const loading = trendPeriod === 30 ? monthlyTrendInFlight.size > 0 : marketFetchInFlight;
-    showStatus(loading ? '履歴を取得中…' : '履歴を取得できません');
+    let message = loading ? '履歴を取得中…' : '履歴を取得できません';
+    if (trendPeriod === 30) {
+      const failed = entries.filter(({entry}) => !validEntry(entry)
+        || Date.now() - entry.fetchedAt > 24 * TREND_FRESH_MS);
+      const errors = failed.map(({id}) => trendCache.monthlyErrors?.[id]).filter(Boolean);
+      const http = errors.find(e => e.kind === 'http');
+      if (loading) {
+        const done = entries.length - failed.length;
+        message = Date.now() < (trendCache.monthlyBlockedUntil || 0)
+          ? '回数制限・再試行待ち' : `履歴を取得中 ${done}/${entries.length}`;
+      } else if (http) {
+        message = http.status === 429 ? '取得回数の制限（429）'
+          : http.status === 403 ? 'アクセス拒否（403）'
+          : http.status === 401 ? '認証エラー（401）' : `取得エラー（${http.status}）`;
+      } else if (errors.some(e => e.kind === 'data')) message = '30日分の履歴不足';
+      else if (errors.some(e => e.kind === 'timeout')) message = '通信タイムアウト';
+      else if (errors.some(e => e.kind === 'network')) message = '通信エラー';
+    }
+    if (missingId) message = 'コインIDを確認';
+    showStatus(message);
     return;
   }
   if (displayCurrency === 'JPY' && !(usdJpy > 0)) { showStatus('為替の取得待ち'); return; }
@@ -1240,7 +1303,7 @@ function renderPortfolioTrend() {
   const path = points.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
   const [endX, endY] = points[points.length - 1];
   const oldest = Math.min(...entries.map(({entry}) => entry.fetchedAt));
-  const stale = Date.now() - oldest >= TREND_FRESH_MS;
+  const stale = Date.now() - oldest >= (trendPeriod === 30 ? MONTHLY_TREND_FRESH_MS : TREND_FRESH_MS);
   const note = `現在の保有数量で計算した${label}の評価額推移。`
     + (displayCurrency === 'JPY' ? '円換算は現在の為替を使用。' : '')
     + `履歴取得: ${priceTimeLabel(oldest)}。${hint}`;
