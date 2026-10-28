@@ -558,7 +558,8 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
 #app-widget-settings a:focus-visible, #app-widget-settings button:focus-visible { outline: 2px solid var(--edit-ring); outline-offset: 2px; }
 .card-total .total-overview { display: grid; grid-template-columns: minmax(0, 1fr) clamp(104px, 18vw, 220px); align-items: start; gap: 16px; }
 .total-overview #c-val { white-space: nowrap; }
-.portfolio-trend { min-width: 0; padding-top: 2px; }
+.portfolio-trend { min-width: 0; padding: 2px 0 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.portfolio-trend:focus-visible { outline: 2px solid var(--edit-ring); outline-offset: 5px; border-radius: 4px; }
 .portfolio-trend svg { display: block; width: 100%; height: 52px; overflow: visible; }
 .trend-caption { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; margin-top: 6px; font-size: 10px; white-space: nowrap; }
 .trend-caption > span:first-child { color: var(--text-muted); font-weight: 400; }
@@ -613,7 +614,7 @@ html[data-theme="dark"] .map-item input[readonly] { background: #26362c !importa
         <div class="card-value" id="c-val">¥ ---</div>
         <div class="pnl-row" id="c-val-pnl"></div>
       </div>
-      <div class="portfolio-trend" id="portfolio-trend"><div class="trend-status">履歴を取得中…</div></div>
+      <button type="button" class="portfolio-trend" id="portfolio-trend" onclick="cycleTrendPeriod()" aria-label="グラフの期間を切り替え"><span class="trend-status">履歴を取得中…</span></button>
     </div>
     <div class="holdings-list" id="holdings-detail"></div>
   </div>
@@ -826,6 +827,9 @@ const TREND_FRESH_MS = 60 * 60 * 1000;
 const TREND_RETRY_MS = 15 * 60 * 1000;
 let trendCache = loadLS(TREND_CACHE_KEY) || {};
 let marketFetchInFlight = false;
+const monthlyTrendInFlight = new Set();
+let trendPeriod = Number(localStorage.getItem('dashboardTrendPeriod'));
+if (![1, 7, 30].includes(trendPeriod)) trendPeriod = 7;
 let displayCurrency = localStorage.getItem('displayCurrency') === 'USD' ? 'USD' : 'JPY';
 let nextId    = Math.max(0, ...holdings.map(h=>h.id)) + 1;
 let sortMode  = false;
@@ -1121,8 +1125,80 @@ function validTrendSeries(entry) {
     && entry.prices.every(p => Number.isFinite(p) && p > 0);
 }
 
+function validMonthlyTrend(entry) {
+  const points = entry?.prices;
+  return entry && Number.isFinite(entry.fetchedAt) && entry.fetchedAt > 0
+    && entry.fetchedAt <= Date.now() + 60000
+    && Array.isArray(points) && points.length >= 30 && points.length <= 64
+    && points.every((p, i) => Array.isArray(p) && Number.isFinite(p[0])
+      && Number.isFinite(p[1]) && p[1] > 0 && p[0] <= entry.fetchedAt + 60000
+      && (!i || p[0] > points[i - 1][0]))
+    && points[points.length - 1][0] - points[0][0] >= 29 * 86400000;
+}
+
+async function fetchMonthlyTrend() {
+  const ids = [...new Set(holdings.filter(h => !hiddenRowIds.has(h.id) && h.quantity !== 0)
+    .map(h => coinIds[h.symbol.toUpperCase()]).filter(Boolean))];
+  const needed = ids.filter(id => !monthlyTrendInFlight.has(id)
+    && (!validMonthlyTrend(trendCache.monthly?.[id])
+      || Date.now() - trendCache.monthly[id].fetchedAt >= TREND_FRESH_MS)
+    && !(Date.now() - trendCache.monthlyAttempts?.[id] < TREND_RETRY_MS));
+  if (!needed.length) return;
+  trendCache.monthlyAttempts = {...trendCache.monthlyAttempts};
+  needed.forEach(id => { monthlyTrendInFlight.add(id); trendCache.monthlyAttempts[id] = Date.now(); });
+  saveTrendCache();
+  // 30日分は選択時のみ、銘柄ごとに順番に取得する。
+  try {
+    for (const id of needed) {
+      try {
+        const url = `https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=usd&days=30&interval=daily`;
+        const response = await fetch(url, {signal: AbortSignal.timeout(15000)});
+        if ([401, 403, 429].includes(response.status)) return;
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const entry = {prices: data.prices, fetchedAt: Date.now()};
+        if (validMonthlyTrend(entry)) {
+          trendCache.monthly = {...trendCache.monthly, [id]: entry};
+          saveTrendCache();
+        }
+      } catch(e) { /* 保存済みの履歴を維持する。 */ }
+    }
+  } finally {
+    needed.forEach(id => monthlyTrendInFlight.delete(id));
+    renderPortfolioTrend();
+  }
+}
+
+window.cycleTrendPeriod = function() {
+  const periods = [1, 7, 30];
+  trendPeriod = periods[(periods.indexOf(trendPeriod) + 1) % periods.length];
+  try { localStorage.setItem('dashboardTrendPeriod', String(trendPeriod)); } catch(e) {}
+  renderPortfolioTrend();
+};
+
+function monthlyPortfolioValues(entries, rate) {
+  // 共通する期間の同じ時刻で補間し、日付の違う価格を足さない。
+  const start = Math.max(...entries.map(({entry}) => entry.prices[0][0]));
+  const end = Math.min(...entries.map(({entry}) => entry.prices[entry.prices.length - 1][0]));
+  if (end - start < 29 * 86400000) return [];
+  return Array.from({length: 31}, (_, i) => {
+    const time = start + (end - start) * i / 30;
+    return entries.reduce((sum, {quantity, entry}) => {
+      const p = entry.prices;
+      let j = 1;
+      while (j < p.length - 1 && p[j][0] < time) j++;
+      const ratio = (time - p[j - 1][0]) / (p[j][0] - p[j - 1][0]);
+      return sum + (p[j - 1][1] + (p[j][1] - p[j - 1][1]) * ratio) * quantity * rate;
+    }, 0);
+  });
+}
+
 function renderPortfolioTrend() {
   const container = document.getElementById('portfolio-trend');
+  const label = trendPeriod === 1 ? '1日' : `${trendPeriod}日間`;
+  const next = {1: 7, 7: 30, 30: 1}[trendPeriod];
+  const hint = `タップで${next}日に切り替え。`;
+  if (trendPeriod === 30) fetchMonthlyTrend();
   const quantities = new Map();
   let missingId = false;
   for (const h of holdings) {
@@ -1132,44 +1208,50 @@ function renderPortfolioTrend() {
     quantities.set(id, (quantities.get(id) || 0) + h.quantity);
   }
   const showStatus = message => {
-    container.removeAttribute('title');
-    container.innerHTML = `<div class="trend-status" role="status">${message}</div>`;
+    container.title = hint;
+    container.setAttribute('aria-label', `${label}。${message}。${hint}`);
+    container.innerHTML = `<span class="trend-status" role="status">${label} ↻<br>${message}</span>`;
   };
-  if (!quantities.size && !missingId) { showStatus('7日間<br>対象銘柄なし'); return; }
-  const entries = [...quantities].map(([id, quantity]) => ({quantity, entry: trendCache.series?.[id]}));
-  if (missingId || entries.some(({entry}) => !validTrendSeries(entry)
+  if (!quantities.size && !missingId) { showStatus('対象銘柄なし'); return; }
+  const entries = [...quantities].map(([id, quantity]) => ({quantity,
+    entry: trendPeriod === 30 ? trendCache.monthly?.[id] : trendCache.series?.[id]}));
+  const validEntry = trendPeriod === 30 ? validMonthlyTrend : validTrendSeries;
+  if (missingId || entries.some(({entry}) => !validEntry(entry)
       || Date.now() - entry.fetchedAt > 24 * TREND_FRESH_MS)) {
-    showStatus(marketFetchInFlight ? '7日間<br>履歴を取得中…' : '7日間<br>履歴を取得できません');
+    const loading = trendPeriod === 30 ? monthlyTrendInFlight.size > 0 : marketFetchInFlight;
+    showStatus(loading ? '履歴を取得中…' : '履歴を取得できません');
     return;
   }
-  if (displayCurrency === 'JPY' && !(usdJpy > 0)) { showStatus('7日間<br>為替の取得待ち'); return; }
+  if (displayCurrency === 'JPY' && !(usdJpy > 0)) { showStatus('為替の取得待ち'); return; }
   // CoinGeckoの時間別USD履歴を末尾で揃え、現在の保有数量で合算する。
-  const count = Math.min(168, ...entries.map(({entry}) => entry.prices.length));
+  const count = Math.min(trendPeriod === 1 ? 24 : 168, ...entries.map(({entry}) => entry.prices.length));
   const rate = displayCurrency === 'JPY' ? usdJpy : 1;
-  const values = Array.from({length: count}, (_, i) => entries.reduce((sum, {quantity, entry}) =>
+  const values = trendPeriod === 30 ? monthlyPortfolioValues(entries, rate)
+    : Array.from({length: count}, (_, i) => entries.reduce((sum, {quantity, entry}) =>
     sum + entry.prices[entry.prices.length - count + i] * quantity * rate, 0));
-  if (values.some(v => !Number.isFinite(v) || v <= 0)) { showStatus('7日間<br>履歴を取得できません'); return; }
+  if (values.length < 2 || values.some(v => !Number.isFinite(v) || v <= 0)) { showStatus('履歴を取得できません'); return; }
   const first = values[0], last = values[values.length - 1];
   const pct = (last / first - 1) * 100;
   const cls = pct >= 0 ? 'pnl-pos' : 'pnl-neg';
   const change = `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%`;
   const min = Math.min(...values), max = Math.max(...values);
   const range = max - min;
-  const points = values.map((v, i) => [3 + i / (count - 1) * 154, range ? 47 - (v - min) / range * 42 : 26]);
+  const points = values.map((v, i) => [3 + i / (values.length - 1) * 154, range ? 47 - (v - min) / range * 42 : 26]);
   const path = points.map(([x, y], i) => `${i ? 'L' : 'M'}${x.toFixed(2)},${y.toFixed(2)}`).join(' ');
   const [endX, endY] = points[points.length - 1];
   const oldest = Math.min(...entries.map(({entry}) => entry.fetchedAt));
   const stale = Date.now() - oldest >= TREND_FRESH_MS;
-  const note = '現在の保有数量で計算した7日間の評価額推移。'
+  const note = `現在の保有数量で計算した${label}の評価額推移。`
     + (displayCurrency === 'JPY' ? '円換算は現在の為替を使用。' : '')
-    + `履歴取得: ${priceTimeLabel(oldest)}。`;
+    + `履歴取得: ${priceTimeLabel(oldest)}。${hint}`;
   container.title = note;
-  container.innerHTML = `<svg viewBox="0 0 160 52" preserveAspectRatio="none" class="${cls}" role="img" aria-label="7日間の評価額推移 ${change}">
+  container.setAttribute('aria-label', `${label}の評価額推移 ${change}。${hint}`);
+  container.innerHTML = `<svg viewBox="0 0 160 52" preserveAspectRatio="none" class="${cls}" role="img" aria-label="${label}の評価額推移 ${change}">
     <title>${escapeHtml(note)}</title>
     <path d="${path} L157,52 L3,52 Z" fill="currentColor" opacity=".09"/>
     <path d="${path}" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>
     <circle cx="${endX}" cy="${endY}" r="2.4" fill="currentColor"/>
-    </svg><div class="trend-caption"><span>${stale ? '7日間・前回' : '7日間'}</span><span class="${cls}">${change}</span></div>`;
+    </svg><span class="trend-caption"><span>${label}${stale ? '・前回' : ''} ↻</span><span class="${cls}">${change}</span></span>`;
 }
 
 // ═══════════════════════════════════════════
